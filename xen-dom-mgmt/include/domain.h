@@ -12,6 +12,8 @@
 #include <zephyr/xen/generic.h>
 #include <xenstore_srv.h>
 
+#include <xenlib_osal.h>
+
 #define NR_MAGIC_PAGES 4
 #define CONSOLE_PFN_OFFSET 0
 #define XENSTORE_PFN_OFFSET 1
@@ -188,13 +190,13 @@ struct xen_domain_cfg {
 
 struct xen_domain_console {
 	struct xencons_interface *intf;
-	struct k_mutex lock;
-	struct k_thread ext_thrd;
-	struct k_thread int_thrd;
-	struct k_sem ext_sem;
-	struct k_sem int_sem;
-	k_tid_t ext_tid;
-	atomic_t stop_thrd;
+	xenlib_osal_mutex_t lock;
+	xenlib_osal_thread_t ext_thrd;
+	xenlib_osal_thread_t int_thrd;
+	xenlib_osal_semaphore_t ext_sem;
+	xenlib_osal_semaphore_t int_sem;
+	xenlib_osal_tid_t ext_tid;
+	xenlib_osal_atomic_t stop_thrd;
 	evtchn_port_t evtchn;
 	evtchn_port_t local_evtchn;
 	int stack_idx;
@@ -219,7 +221,7 @@ struct xen_domain {
 	int num_vcpus;
 	int address_size;
 	uint64_t max_mem_kb;
-	sys_dnode_t node;
+	xenlib_osal_dnode_t node;
 	int refcount;
 
 	/* TODO: domains can have more than one console */

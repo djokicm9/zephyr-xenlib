@@ -7,7 +7,7 @@ if(CONFIG_XEN)
 
   set(ZEPHYR_XENLIB_DIR ${ZEPHYR_CURRENT_MODULE_DIR})
 
-  zephyr_include_directories(${ZEPHYR_XENLIB_DIR}/include)
+  zephyr_include_directories(${ZEPHYR_XENLIB_DIR}/include platform)
 
   add_subdirectory_ifdef(CONFIG_XEN_STORE_COMMON xenstore-common)
   add_subdirectory_ifdef(CONFIG_XEN_STORE_SRV xenstore-srv)

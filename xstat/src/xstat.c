@@ -64,7 +64,7 @@ int xstat_getdominfo(struct xenstat_domain *domains, uint16_t first, uint16_t nu
 		num = ALL_DOMAINS_MAX;
 	}
 
-	infos = k_malloc(sizeof(*infos) * num);
+	infos = xenlib_osal_memalloc(sizeof(*infos) * num);
 	if (!infos) {
 		ret = -ENOMEM;
 		goto out;
@@ -92,7 +92,7 @@ int xstat_getdominfo(struct xenstat_domain *domains, uint16_t first, uint16_t nu
 		domains[i].ssid = infos[i].ssidref;
 	}
 out_free:
-	k_free(infos);
+	xenlib_osal_memfree(infos);
 out:
 	return ret;
 }
@@ -122,7 +122,7 @@ int xstat_getstat(struct xenstat *stat)
 
 	snprintf(stat->xen_version, VERSION_SIZE, "%d.%d%s",
 		 major, minor, extra);
-	info = k_malloc(sizeof(struct xen_sysctl_physinfo));
+	info = xenlib_osal_memalloc(sizeof(struct xen_sysctl_physinfo));
 	if (!info) {
 		ret = -ENOMEM;
 		goto out;
@@ -138,7 +138,7 @@ int xstat_getstat(struct xenstat *stat)
 	stat->free_mem = (unsigned long long)info->free_pages * XEN_PAGE_SIZE;
 
 out_free:
-	k_free(info);
+	xenlib_osal_memfree(info);
 out:
 	return ret;
 }

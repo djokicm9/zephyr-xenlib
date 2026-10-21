@@ -16,7 +16,7 @@
 #include <xen_console.h>
 #endif
 
-LOG_MODULE_REGISTER(xen_shell);
+XENLIB_OSAL_LOG_MODULE_REGISTER(xen_shell);
 static struct xen_domctl_getdomaininfo infos[ALL_DOMAINS_MAX];
 
 static struct xen_domain_cfg domcfg_tmp;
@@ -35,35 +35,35 @@ static int xen_cmd_read_pfdt(struct xen_domain_cfg *domcfg)
 	}
 
 	if (!domcfg->image_dt_get_size && !domcfg->image_dt_read) {
-		LOG_DBG("PDT read callback not provided");
+		XENLIB_OSAL_LOG_DBG("PDT read callback not provided");
 		return 0;
 	}
 
-	LOG_INF("PDT not provided, attempt to read from storage");
+	XENLIB_OSAL_LOG_INF("PDT not provided, attempt to read from storage");
 
 	ret = domcfg->image_dt_get_size(domcfg->image_info, &pfdt_size);
 	if (ret) {
-		LOG_ERR("PDT get size failed (%d)", ret);
+		XENLIB_OSAL_LOG_ERR("PDT get size failed (%d)", ret);
 		return ret;
 	}
 
 	if (!pfdt_size) {
-		LOG_ERR("wrong PDT size");
+		XENLIB_OSAL_LOG_ERR("wrong PDT size");
 		return -ENOEXEC;
 	}
 
 	if (pfdt_size > sizeof(pfdt_read_buf)) {
-		LOG_ERR("PDT size is too big %zd", pfdt_size);
+		XENLIB_OSAL_LOG_ERR("PDT size is too big %zd", pfdt_size);
 		return -EFBIG;
 	}
 
 	ret = domcfg->image_dt_read(pfdt_read_buf, pfdt_size, 0, domcfg->image_info);
 	if (ret) {
-		LOG_ERR("PDT read failed (%d)", ret);
+		XENLIB_OSAL_LOG_ERR("PDT read failed (%d)", ret);
 		return ret;
 	}
 
-	LOG_DBG("PDT read magic:%08x", *(uint32_t *)pfdt_read_buf);
+	XENLIB_OSAL_LOG_DBG("PDT read magic:%08x", *(uint32_t *)pfdt_read_buf);
 
 	domcfg->dtb_start = pfdt_read_buf;
 	domcfg->dtb_end = pfdt_read_buf + pfdt_size;
