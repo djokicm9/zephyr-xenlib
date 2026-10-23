@@ -3,11 +3,10 @@
  * Copyright (c) 2023 EPAM Systems
  */
 
-#include <zephyr/xen/memory.h>
+#include <xen/memory.h>
 #if defined(CONFIG_XEN_REGIONS)
-#include <zephyr/xen/regions.h>
+#include <xen/regions.h>
 #endif
-#include <zephyr/logging/log.h>
 
 #include <mem-mgmt.h>
 

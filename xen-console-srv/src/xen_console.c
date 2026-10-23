@@ -11,13 +11,8 @@
 #include <xen/public/memory.h>
 #include <xen/public/xen.h>
 
-#include <zephyr/init.h>
-#include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/shell/shell.h>
-#include <zephyr/sys/barrier.h>
-#include <zephyr/xen/generic.h>
-#include <zephyr/xen/hvm.h>
+#include <xen/generic.h>
+#include <xen/hvm.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -399,11 +394,11 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 {
 	ARG_UNUSED(p3);
 	struct xen_domain_console *console = p1;
-	const struct shell *shell = p2;
+	const xenlib_osal_shell_t *shell = p2;
 	size_t buf_pos, prod_buf_pos;
 	int size;
 
-	shell_info(shell, "Attached to a domain console");
+	xenlib_osal_shell_info(shell, "Attached to a domain console");
 
 	while (!xenlib_osal_atomic_test_and_clear_bit(&console->stop_thrd,
 					  INT_THREAD_STOP_BIT)) {
@@ -412,7 +407,7 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 		xenlib_osal_mutex_lock(&console->lock, XENLIB_OSAL_WAIT_FOREVER);
 		/* Display info about missed characters */
 		if (console->lost_chars) {
-			shell_warn(shell,
+			xenlib_osal_shell_warn(shell,
 				   "Domain console overrun detected. %zi bytes was lost",
 				   console->lost_chars);
 			console->lost_chars = 0;
@@ -434,7 +429,7 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 			} else {
 				size = XEN_CONSOLE_BUFFER_SZ - buf_pos;
 			}
-			shell_fprintf(shell, SHELL_NORMAL, "%.*s", size,
+			xenlib_osal_shell_fprintf(shell, SHELL_NORMAL, "%.*s", size,
 						&console->int_buf[buf_pos]);
 			console->int_cons += size;
 		}
@@ -445,10 +440,10 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 	current_console = NULL;
 	xenlib_osal_mutex_unlock(&global_console_lock);
 
-	shell_info(shell, "Detached from console");
+	xenlib_osal_shell_info(shell, "Detached from console");
 }
 
-static void console_shell_cb(const struct shell *shell,
+static void console_shell_cb(const xenlib_osal_shell_t *shell,
 			     uint8_t *data, size_t len, void *user_data)
 {
 	struct xen_domain_console *console;
@@ -462,7 +457,7 @@ static void console_shell_cb(const struct shell *shell,
 	if (!console) {
 		/* This may happen if xen_stop_domain_console() was
 		 * called when console is still attached */
-		shell_set_bypass(shell, NULL, NULL);
+		xenlib_osal_shell_set_bypass(shell, NULL, NULL);
 		return;
 	}
 
@@ -470,7 +465,7 @@ static void console_shell_cb(const struct shell *shell,
 		/* Detach console */
 		xenlib_osal_atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 		xenlib_osal_semaphore_signal(&console->int_sem);
-		shell_set_bypass(shell, NULL, NULL);
+		xenlib_osal_shell_set_bypass(shell, NULL, NULL);
 		return;
 	}
 
@@ -478,7 +473,7 @@ static void console_shell_cb(const struct shell *shell,
 	notify_evtchn(console->local_evtchn);
 }
 
-int xen_attach_domain_console(const struct shell *shell,
+int xen_attach_domain_console(const xenlib_osal_shell_t *shell,
 			      struct xen_domain *domain)
 {
 	struct xen_domain_console *console;
@@ -497,7 +492,7 @@ int xen_attach_domain_console(const struct shell *shell,
 	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 	if (current_console) {
 		/* Actually, this should never happen */
-		shell_error(shell, "Shell is already attached to console");
+		xenlib_osal_shell_error(shell, "Shell is already attached to console");
 		xenlib_osal_mutex_unlock(&global_console_lock);
 		put_domain(domain);
 		return -EEXIST;
@@ -525,7 +520,7 @@ int xen_attach_domain_console(const struct shell *shell,
 		xenlib_osal_thread_name_set(&console->int_thrd, name);
 	}
 
-	shell_set_bypass(shell, console_shell_cb, NULL);
+	xenlib_osal_shell_set_bypass(shell, console_shell_cb, NULL);
 
 	put_domain(domain);
 	return 0;

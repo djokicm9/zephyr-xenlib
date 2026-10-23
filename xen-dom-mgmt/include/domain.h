@@ -8,8 +8,8 @@
 #define XENLIB_XEN_DOMAIN_H
 
 #include <sys/types.h>
-#include <zephyr/xen/events.h>
-#include <zephyr/xen/generic.h>
+#include <xen/events.h>
+#include <xen/generic.h>
 #include <xenstore_srv.h>
 
 #include <xenlib_osal.h>

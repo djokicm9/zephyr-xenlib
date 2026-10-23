@@ -12,8 +12,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include <zephyr/logging/log.h>
-
 #include <xl_parser.h>
 
 XENLIB_OSAL_LOG_MODULE_REGISTER(xl_parser);

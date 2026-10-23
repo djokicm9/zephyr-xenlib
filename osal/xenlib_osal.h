@@ -9,6 +9,7 @@
 #include <xenlib_osal_atomic.h>
 #include <xenlib_osal_barrier.h>
 #include <xenlib_osal_time.h>
+#include <xenlib_osal_shell.h>
 
 extern int xenlib_osal_mutex_init(xenlib_osal_mutex_t *mutex);
 extern int xenlib_osal_mutex_lock(xenlib_osal_mutex_t *mutex,
