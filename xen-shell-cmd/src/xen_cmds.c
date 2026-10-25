@@ -356,4 +356,4 @@ XENLIB_OSAL_SHELL_STATIC_SUBCMD_SET_CREATE(
 		      domain_list, 1, 0),
 	XENLIB_OSAL_SHELL_SUBCMD_SET_END);
 
-XENLIB_OSAL_XENLIB_OSAL_SHELL_CMD_ARG_REGISTER(xu, &subcmd_xu, "Xenutils commands", NULL, 2, 0);
+XENLIB_OSAL_SHELL_CMD_ARG_REGISTER(xu, &subcmd_xu, "Xenutils commands", NULL, 2, 0);

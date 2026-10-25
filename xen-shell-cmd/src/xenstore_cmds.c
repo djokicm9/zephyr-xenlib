@@ -113,4 +113,4 @@ XENLIB_OSAL_SHELL_STATIC_SUBCMD_SET_CREATE(
 			xenstore_shell_rm, 2, 0),
 	SHELL_SUBCMD_SET_END);
 
-XENLIB_OSAL_XENLIB_OSAL_SHELL_CMD_ARG_REGISTER(xs, &subcmd_xs, "Xenstore commands", NULL, 2, 0);
+XENLIB_OSAL_SHELL_CMD_ARG_REGISTER(xs, &subcmd_xs, "Xenstore commands", NULL, 2, 0);
