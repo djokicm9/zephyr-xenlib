@@ -1938,7 +1938,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 	xenlib_osal_slist_init(&xenstore->out_list);
 	xenstore->used_out_bufs = 0;
 	xenlib_osal_semaphore_init(&xenstore->xb_sem, 0, 1);
-	atomic_clear(&xenstore->thrd_stop);
+	xenlib_osal_atomic_clear(&xenstore->thrd_stop);
 
 	rc = xenmem_map_region(domain->domid, 1, store_pfn, (void **)&xenstore->domint);
 	if (rc < 0) {
@@ -2069,7 +2069,7 @@ int stop_domain_stored(struct xen_domain *domain)
 	xenstore = &domain->xenstore;
 
 	XENLIB_OSAL_LOG_DBG("Destroy domain#%u", domain->domid);
-	atomic_set(&xenstore->thrd_stop, 1);
+	xenlib_osal_atomic_set(&xenstore->thrd_stop, 1);
 	xenlib_osal_semaphore_signal(&xenstore->xb_sem);
 	xenlib_osal_thread_join(&xenstore->thrd, XENLIB_OSAL_WAIT_FOREVER);
 	free_stack_idx(xenstore->xs_stack_slot);
