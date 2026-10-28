@@ -125,7 +125,7 @@ static void write_to_ext_ring(struct xencons_interface *intf,
 	XENCONS_RING_IDX idx = 0;
 	size_t free_space;
 
-	z_barrier_dsync_fence_full();		/* Read counters, then write data */
+	xenlib_osal_dsync_fence_full();		/* Read counters, then write data */
 	if ((prod - cons) > sizeof(intf->in)) {
 		LOG_WRN("Invalid state of console input ring. Resetting.");
 		intf->in_prod = cons;
@@ -145,7 +145,7 @@ static void write_to_ext_ring(struct xencons_interface *intf,
 		len--;
 	}
 
-	z_barrier_dsync_fence_full();		/* Write data, then update counter */
+	xenlib_osal_dsync_fence_full();		/* Write data, then update counter */
 	intf->in_prod = prod;
 }
 #endif /* CONFIG_XEN_SHELL */
@@ -163,7 +163,7 @@ static int read_from_ext_ring(struct xencons_interface *intf,
 	XENCONS_RING_IDX prod = intf->out_prod;
 	XENCONS_RING_IDX out_idx = 0;
 
-	z_barrier_dsync_fence_full();		/* Read counters, then data */
+	xenlib_osal_dsync_fence_full();		/* Read counters, then data */
 	if ((prod - cons) > sizeof(intf->out)) {
 		LOG_WRN("Invalid state of console output ring. Resetting.");
 		intf->out_cons = prod;
@@ -177,7 +177,7 @@ static int read_from_ext_ring(struct xencons_interface *intf,
 		cons++;
 	}
 
-	z_barrier_dsync_fence_full();		/* Read data then update counter */
+	xenlib_osal_dsync_fence_full();		/* Read data then update counter */
 	intf->out_cons = cons;
 
 	return recv;

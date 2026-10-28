@@ -16,6 +16,7 @@
 #include <zephyr/sys/barrier.h>
 
 #include "vch.h"
+#include <xenlib_osal.h>
 
 #define RD_PROD(h) ((h)->read->prod)
 #define RD_CONS(h) ((h)->read->cons)
@@ -57,7 +58,7 @@ static int _vch_notify(struct vch_handle *h, int rw)
 		return -EINVAL;
 	}
 
-	z_barrier_dmem_fence_full();
+	xenlib_osal_dmem_fence_full();
 	if (h->is_server) {
 		target = &h->ring->srv_notify;
 	} else {
@@ -93,7 +94,7 @@ static void _vch_unmask_notify(struct vch_handle *h, int bit)
 	}
 
 	__atomic_fetch_or(target, bit, __ATOMIC_SEQ_CST);
-	z_barrier_dmem_fence_full();
+	xenlib_osal_dmem_fence_full();
 }
 
 static inline size_t _vch_get_rd_avail(struct vch_handle *h, size_t req)
@@ -101,7 +102,7 @@ static inline size_t _vch_get_rd_avail(struct vch_handle *h, size_t req)
 
 	size_t avail = RD_PROD(h) - RD_CONS(h);
 
-	z_barrier_dmem_fence_full();
+	xenlib_osal_dmem_fence_full();
 
 	return avail;
 }
@@ -111,7 +112,7 @@ static inline size_t _vch_get_wr_avail(struct vch_handle *h, size_t req)
 
 	size_t avail = WR_RING_SZ(h) - (WR_PROD(h) - WR_CONS(h));
 
-	z_barrier_dmem_fence_full();
+	xenlib_osal_dmem_fence_full();
 
 	return avail;
 }
@@ -385,13 +386,13 @@ int vch_read(struct vch_handle *h, void *buf, size_t size)
 			}
 
 			/* ensure indexes are read before data access */
-			z_barrier_dmem_fence_full();
+			xenlib_osal_dmem_fence_full();
 			size = MIN(size, avail);
 			chunk = MIN(chunk, size);
 			memcpy((uint8_t *)buf, h->read_cbuf + idx, chunk);
 			memcpy((uint8_t *)buf + chunk, h->read_cbuf,
 			       size - chunk);
-			z_barrier_dmem_fence_full();
+			xenlib_osal_dmem_fence_full();
 			RD_CONS(h) += size;
 			if (_vch_notify(h, VCHAN_NOTIFY_READ)) {
 				return -EFAULT;
@@ -430,13 +431,13 @@ int vch_write(struct vch_handle *h, const void *buf, size_t size)
 			}
 
 			/* ensure indexes are read before buffer fill */
-			z_barrier_dmem_fence_full();
+			xenlib_osal_dmem_fence_full();
 			size = MIN(size, avail);
 			chunk = MIN(chunk, size);
 			memcpy(h->write_cbuf + idx, buf, chunk);
 			memcpy(h->write_cbuf, (uint8_t *)buf + chunk,
 			       size - chunk);
-			z_barrier_dmem_fence_full();
+			xenlib_osal_dmem_fence_full();
 			WR_PROD(h) += size;
 			if (_vch_notify(h, VCHAN_NOTIFY_WRITE)) {
 				return -EFAULT;
