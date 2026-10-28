@@ -30,7 +30,7 @@
 #include "xss.h"
 #include <xenlib_osal.h>
 
-LOG_MODULE_REGISTER(xenstore);
+XENLIB_OSAL_LOG_MODULE_REGISTER(xenstore);
 
 /* Max string length of int32_t + terminating null symbol */
 #define INT32_MAX_STR_LEN (12)
@@ -206,7 +206,7 @@ static int get_stack_idx(void)
 	 */
 	__ASSERT_NO_MSG(ret >= 0);
 	used_threads |= BIT(ret);
-	LOG_DBG("Allocated stack with index %d", ret);
+	XENLIB_OSAL_LOG_DBG("Allocated stack with index %d", ret);
 
 	xenlib_osal_mutex_unlock(&xs_stack_lock);
 
@@ -260,7 +260,7 @@ static int construct_path(const char *payload, uint32_t domid, char **path)
 
 	*path = xenlib_osal_memalloc(path_len + XENSTORE_MAX_LOCALPATH_LEN);
 	if (!*path) {
-		LOG_ERR("Failed to allocate memory for path");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory for path");
 		return -ENOMEM;
 	}
 
@@ -348,7 +348,7 @@ static struct xs_entry *key_to_entry(const char *key)
 
 	key_buffer = xenlib_osal_memalloc(keyl + 1);
 	if (!key_buffer) {
-		LOG_ERR("Failed to allocate memory for path");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory for path");
 		return NULL;
 	}
 
@@ -401,7 +401,7 @@ static struct xs_entry *key_to_entry_check_perm(const char *key, uint32_t domid,
 
 static void invalidate_client(struct xenstore *xenstore, const char *reason, int err)
 {
-	LOG_ERR("Domain#%d xenstore is invalid: %s (err=%d)",
+	XENLIB_OSAL_LOG_ERR("Domain#%d xenstore is invalid: %s (err=%d)",
 		xenstore->domain->domid, reason, err);
 	stop_domain_stored(xenstore->domain);
 }
@@ -479,7 +479,7 @@ static void send_reply_sz(struct xenstore *xenstore, uint32_t req_id,
 	}
 
 	if (len > XENSTORE_PAYLOAD_MAX) {
-		LOG_ERR("Failed to reply: payload size too big (%zu max=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to reply: payload size too big (%zu max=%d)",
 			len, XENSTORE_PAYLOAD_MAX);
 		send_errno(xenstore, req_id, E2BIG);
 		return;
@@ -487,7 +487,7 @@ static void send_reply_sz(struct xenstore *xenstore, uint32_t req_id,
 
 	bdata = xenlib_osal_memalloc(sizeof(*bdata));
 	if (!bdata) {
-		LOG_ERR("Failed to allocate memory for output buffer");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory for output buffer");
 		return;
 	}
 
@@ -495,7 +495,7 @@ static void send_reply_sz(struct xenstore *xenstore, uint32_t req_id,
 	bdata->buffer = xenlib_osal_memalloc(total_size);
 	if (!bdata->buffer) {
 		xenlib_osal_memfree(bdata);
-		LOG_ERR("Failed to allocate memory to store output data");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory to store output data");
 		return;
 	}
 
@@ -528,7 +528,7 @@ static void send_errno(struct xenstore *xenstore, uint32_t id, int err)
 
 	for (i = 0; err != xsd_errors[i].errnum; i++) {
 		if (i == ARRAY_SIZE(xsd_errors) - 1) {
-			LOG_ERR("xenstored: error %i untranslatable", err);
+			XENLIB_OSAL_LOG_ERR("xenstored: error %i untranslatable", err);
 			i = 0; /* EINVAL */
 			break;
 		}
@@ -548,7 +548,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 
 	rc = construct_path(payload, xenstore->domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -576,7 +576,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 
 	dir_list = xenlib_osal_memalloc(reply_sz);
 	if (!dir_list) {
-		LOG_ERR("Failed to allocate memory for dir list");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory for dir list");
 		send_errno(xenstore, id, ENOMEM);
 		xenlib_osal_mutex_unlock(&xsel_mutex);
 		return;
@@ -830,7 +830,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 
 	path = xenlib_osal_memalloc(xenstore_str_byte_size(const_path));
 	if (!path) {
-		LOG_ERR("Failed to allocate memory for path\n");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate memory for path\n");
 		return -ENOMEM;
 	}
 
@@ -851,14 +851,15 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 
 		if (iter == NULL) {
 			if (parent_entry && !check_perms(parent_entry, XS_PERM_WRITE, domid)) {
-				LOG_INF("Permission denied for domid#%u (%s)", domid, const_path);
+				XENLIB_OSAL_LOG_INF("Permission denied for domid#%u (%s)",
+					domid, const_path);
 				rc = -EACCES;
 				goto free_allocated;
 			}
 
 			iter = xenlib_osal_memalloc(sizeof(*iter));
 			if (!iter) {
-				LOG_ERR("Failed to allocate memory for xs entry");
+				XENLIB_OSAL_LOG_ERR("Failed to allocate memory for xs entry");
 				rc = -ENOMEM;
 				goto free_allocated;
 			}
@@ -884,7 +885,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 				rc = inherit_perms(iter, parent_entry, domid);
 			}
 			if (rc) {
-				LOG_ERR("Failed to set permissions (rc=%d)", rc);
+				XENLIB_OSAL_LOG_ERR("Failed to set permissions (rc=%d)", rc);
 				goto free_allocated;
 			}
 
@@ -898,14 +899,15 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 
 	if (iter && data_len > 0) {
 		if (!check_perms(iter, XS_PERM_WRITE, domid)) {
-			LOG_INF("Permission denied for domid#%u (%s)", domid, const_path);
+			XENLIB_OSAL_LOG_INF("Permission denied for domid#%u (%s)",
+				domid, const_path);
 			rc = -EACCES;
 			goto free_allocated;
 		}
 
 		new_value = xenlib_osal_memalloc(data_len);
 		if (!new_value) {
-			LOG_ERR("Failed to allocate memory for xs entry value");
+			XENLIB_OSAL_LOG_ERR("Failed to allocate memory for xs entry value");
 			rc = -ENOMEM;
 			goto free_allocated;
 		}
@@ -990,7 +992,7 @@ pkey_fail:
 	xenlib_osal_memfree(pentry);
 pentry_fail:
 	xenlib_osal_mutex_unlock(&wel_mutex);
-	LOG_WRN("Failed to notify Domain#%d about path %s, no memory",
+	XENLIB_OSAL_LOG_WRN("Failed to notify Domain#%d about path %s, no memory",
 		iter->domain->domid, path);
 	return -ENOMEM;
 }
@@ -1010,14 +1012,14 @@ int xss_write(const char *path, const char *value)
 	};
 
 	if (!path || !value) {
-		LOG_ERR("Invalid arguments: path or value is NULL");
+		XENLIB_OSAL_LOG_ERR("Invalid arguments: path or value is NULL");
 		return -EINVAL;
 	}
 
 	rc = xss_do_write(path, value, XENSTORE_LOCAL_DOMAIN_ID, &perms, 1,
 			   XENLIB_OSAL_WAIT_FOREVER);
 	if (rc) {
-		LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
 	} else {
 		notify_watchers(path, XENSTORE_LOCAL_DOMAIN_ID);
 	}
@@ -1034,14 +1036,14 @@ int xss_write_guest_domain_rw(const char *path, const char *value, uint32_t domi
 	};
 
 	if (!path || !value) {
-		LOG_ERR("Invalid arguments: path or value is NULL");
+		XENLIB_OSAL_LOG_ERR("Invalid arguments: path or value is NULL");
 		return -EINVAL;
 	}
 
 	rc = xss_do_write(path, value, XENSTORE_LOCAL_DOMAIN_ID, &perms, 1,
 				   XENLIB_OSAL_WAIT_FOREVER);
 	if (rc) {
-		LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
 	} else {
 		notify_watchers(path, XENSTORE_LOCAL_DOMAIN_ID);
 	}
@@ -1065,7 +1067,7 @@ int xss_write_guest_domain_ro(const char *path, const char *value, uint32_t domi
 	};
 
 	if (!path || !value) {
-		LOG_ERR("Invalid arguments: path or value is NULL");
+		XENLIB_OSAL_LOG_ERR("Invalid arguments: path or value is NULL");
 		return -EINVAL;
 	}
 
@@ -1080,7 +1082,7 @@ int xss_write_guest_domain_ro(const char *path, const char *value, uint32_t domi
 		rc = xss_do_write(path, value, XENSTORE_LOCAL_DOMAIN_ID, perms, 2, XENLIB_OSAL_WAIT_FOREVER);
 	}
 	if (rc) {
-		LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
 	} else {
 		notify_watchers(path, XENSTORE_LOCAL_DOMAIN_ID);
 	}
@@ -1104,7 +1106,7 @@ int xss_write_guest_with_permissions(const char *path, const char *value, uint32
 	};
 
 	if (!path || !value) {
-		LOG_ERR("Invalid arguments: path or value is NULL");
+		XENLIB_OSAL_LOG_ERR("Invalid arguments: path or value is NULL");
 		return -EINVAL;
 	}
 
@@ -1112,7 +1114,7 @@ int xss_write_guest_with_permissions(const char *path, const char *value, uint32
 			   XENLIB_OSAL_WAIT_FOREVER);
 
 	if (rc) {
-		LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
 	} else {
 		notify_watchers(path, XENSTORE_LOCAL_DOMAIN_ID);
 	}
@@ -1161,7 +1163,8 @@ static void xss_list_traverse_entry(struct xs_entry *entry, xss_traverse_callbac
 	depth++;
 
 	if (depth >= CONFIG_XENSTORE_TREE_TRAVERSE_DEPTH) {
-		LOG_DBG("Reached XS max traverse depth %d. skip processing", depth);
+		XENLIB_OSAL_LOG_DBG("Reached XS max traverse depth %d. skip processing",
+			depth);
 		return;
 	}
 
@@ -1257,7 +1260,8 @@ static void _handle_write(struct xenstore *xenstore, uint32_t id,
 	struct xen_domain *domain = xenstore->domain;
 
 	if (len < path_len) {
-		LOG_ERR("Write path length (%zu) is bigger than given payload size (%u)",
+		XENLIB_OSAL_LOG_ERR("Write path length (%zu) is bigger than given "
+			"payload size (%u)",
 			path_len, len);
 		send_errno(xenstore, id, EINVAL);
 		return;
@@ -1265,7 +1269,7 @@ static void _handle_write(struct xenstore *xenstore, uint32_t id,
 
 	rc = construct_path(payload, domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -1279,7 +1283,7 @@ static void _handle_write(struct xenstore *xenstore, uint32_t id,
 	rc = xss_do_write(path, data, domain->domid, NULL, 0,
 			   XENLIB_OSAL_WAIT_FOREVER);
 	if (rc) {
-		LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to write to xenstore (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		goto free_data;
 	}
@@ -1321,7 +1325,7 @@ static void process_pending_watch_events(struct xen_domain *domain)
 
 		rc = fire_watcher(domain, iter->key);
 		if (rc < 0) {
-			LOG_ERR("Failed to send watch event, err = %d", rc);
+			XENLIB_OSAL_LOG_ERR("Failed to send watch event, err = %d", rc);
 			goto out;
 		}
 
@@ -1394,7 +1398,7 @@ static void handle_get_perms(struct xenstore *xenstore, uint32_t id,
 
 	rc = construct_path(payload, xenstore->domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -1442,7 +1446,7 @@ static void handle_set_perms(struct xenstore *xenstore, uint32_t id,
 
 	rc = construct_path(payload, xenstore->domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -1489,7 +1493,7 @@ static void handle_read(struct xenstore *xenstore, uint32_t id, char *payload,
 
 	rc = construct_path(payload, xenstore->domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -1663,7 +1667,7 @@ wkey_fail:
 	xenlib_osal_memfree(wentry);
 wentry_fail:
 	xenlib_osal_memfree(path);
-	LOG_WRN("Failed to create watch for Domain#%d, no memory",
+	XENLIB_OSAL_LOG_WRN("Failed to create watch for Domain#%d, no memory",
 		domain->domid);
 	send_errno(xenstore, id, ENOMEM);
 
@@ -1678,7 +1682,7 @@ pentry_fail:
 	 * We can't notify domain that this file already exists,
 	 * so leave it without first WATCH_EVENT
 	 */
-	LOG_WRN("Failed to notify Domain#%d, no memory for event",
+	XENLIB_OSAL_LOG_WRN("Failed to notify Domain#%d, no memory for event",
 		domain->domid);
 }
 
@@ -1694,7 +1698,7 @@ static void handle_unwatch(struct xenstore *xenstore, uint32_t id,
 
 	rc = construct_path(payload, domain->domid, &path);
 	if (rc) {
-		LOG_ERR("Failed to construct path (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to construct path (rc=%d)", rc);
 		send_errno(xenstore, id, -rc);
 		return;
 	}
@@ -1719,7 +1723,8 @@ static void handle_transaction_start(struct xenstore *xenstore, uint32_t id,
 	char buf[INT32_MAX_STR_LEN] = { 0 };
 
 	if (xenstore->running_transaction) {
-		LOG_ERR("domid#%u: transaction already started", xenstore->domain->domid);
+		XENLIB_OSAL_LOG_ERR("domid#%u: transaction already started",
+			xenstore->domain->domid);
 		send_errno(xenstore, id, EBUSY);
 		return;
 	}
@@ -1816,7 +1821,7 @@ static void process_message(struct xenstore *xenstore)
 	size_t payload_size = xenstore->in->total_size - sizeof(*header);
 
 	if ((uint32_t)type >= XS_TYPE_COUNT || !message_handle_list[type].h) {
-		LOG_ERR("Client unknown operation %i", type);
+		XENLIB_OSAL_LOG_ERR("Client unknown operation %i", type);
 		send_errno(xenstore, 0, ENOSYS);
 		return;
 	}
@@ -1861,7 +1866,8 @@ static void handle_input(struct xenstore *xenstore)
 
 		memcpy(&header, xenstore->in->buffer, sizeof(header));
 		if (header.len > XENSTORE_PAYLOAD_MAX) {
-			LOG_ERR("Failed to handle input: payload size is too big (%u max=%d)",
+			XENLIB_OSAL_LOG_ERR("Failed to handle input: payload size is too big "
+				"(%u max=%d)",
 				header.len, XENSTORE_PAYLOAD_MAX);
 			xenlib_osal_memfree(xenstore->in->buffer);
 			xenlib_osal_memfree(xenstore->in);
@@ -1962,7 +1968,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 
 	rc = xenmem_map_region(domain->domid, 1, store_pfn, (void **)&xenstore->domint);
 	if (rc < 0) {
-		LOG_ERR("Failed to map xenstore ring for domain#%u (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to map xenstore ring for domain#%u (rc=%d)",
 			domain->domid, rc);
 		return rc;
 	}
@@ -1978,7 +1984,8 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 					    xs_evtchn_cb,
 					    (void *)xenstore);
 	if (rc < 0) {
-		LOG_ERR("Failed to bind interdomain event channel (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to bind interdomain event channel (rc=%d)",
+			rc);
 		goto unmap_ring;
 	}
 
@@ -1988,7 +1995,8 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 		rc = hvm_set_parameter(HVM_PARAM_STORE_EVTCHN, domain->domid,
 				       xenstore->remote_evtchn);
 		if (rc) {
-			LOG_ERR("Failed to set domain xenbus evtchn param (rc=%d)", rc);
+			XENLIB_OSAL_LOG_ERR("Failed to set domain xenbus evtchn param (rc=%d)",
+				rc);
 			goto unmap_ring;
 		}
 	}
@@ -2012,7 +2020,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 unmap_ring:
 	err_ret = xenmem_unmap_region(1, xenstore->domint);
 	if (err_ret < 0) {
-		LOG_ERR("Failed to unmap domain#%u xenstore ring (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap domain#%u xenstore ring (rc=%d)",
 			domain->domid, err_ret);
 	}
 	return rc;
@@ -2089,7 +2097,7 @@ int stop_domain_stored(struct xen_domain *domain)
 
 	xenstore = &domain->xenstore;
 
-	LOG_DBG("Destroy domain#%u", domain->domid);
+	XENLIB_OSAL_LOG_DBG("Destroy domain#%u", domain->domid);
 	xenlib_osal_atomic_set(&xenstore->thrd_stop, 1);
 	xenlib_osal_semaphore_signal(&xenstore->xb_sem);
 	xenlib_osal_thread_join(&xenstore->thrd, XENLIB_OSAL_WAIT_FOREVER);
@@ -2098,14 +2106,14 @@ int stop_domain_stored(struct xen_domain *domain)
 
 	rc = evtchn_close(xenstore->local_evtchn);
 	if (rc) {
-		LOG_ERR("Unable to close event channel#%u (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Unable to close event channel#%u (rc=%d)",
 			xenstore->local_evtchn, rc);
 		err = rc;
 	}
 
 	rc = xenmem_unmap_region(1, xenstore->domint);
 	if (rc < 0) {
-		LOG_ERR("Failed to unmap domain#%u xenstore ring (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap domain#%u xenstore ring (rc=%d)",
 			domain->domid, rc);
 		err = rc;
 	}

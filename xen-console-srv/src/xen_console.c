@@ -28,7 +28,7 @@
 #include <mem-mgmt.h>
 #include <xenlib_osal.h>
 
-LOG_MODULE_REGISTER(xen_domain_console);
+XENLIB_OSAL_LOG_MODULE_REGISTER(xen_domain_console);
 
 /* One page is enough for anyone */
 #define XEN_CONSOLE_STACK_SIZE		4096
@@ -71,7 +71,7 @@ static int get_stack_idx(void)
 	 */
 	__ASSERT_NO_MSG(ret >= 0);
 	used_threads |= BIT(ret);
-	LOG_DBG("Allocated stack with index %d", ret);
+	XENLIB_OSAL_LOG_DBG("Allocated stack with index %d", ret);
 
 	xenlib_osal_mutex_unlock(&global_console_lock);
 
@@ -127,7 +127,7 @@ static void write_to_ext_ring(struct xencons_interface *intf,
 
 	xenlib_osal_dsync_fence_full();		/* Read counters, then write data */
 	if ((prod - cons) > sizeof(intf->in)) {
-		LOG_WRN("Invalid state of console input ring. Resetting.");
+		XENLIB_OSAL_LOG_WRN("Invalid state of console input ring. Resetting.");
 		intf->in_prod = cons;
 		return;
 	}
@@ -165,7 +165,7 @@ static int read_from_ext_ring(struct xencons_interface *intf,
 
 	xenlib_osal_dsync_fence_full();		/* Read counters, then data */
 	if ((prod - cons) > sizeof(intf->out)) {
-		LOG_WRN("Invalid state of console output ring. Resetting.");
+		XENLIB_OSAL_LOG_WRN("Invalid state of console output ring. Resetting.");
 		intf->out_cons = prod;
 		return 0;
 	}
@@ -223,14 +223,14 @@ static int xen_init_domain_console(struct xen_domain *domain)
 			       CONSOLE_PFN_OFFSET,
 			       (void **)&console->intf);
 	if (rc < 0) {
-		LOG_ERR("Failed to map console ring for domain#%u (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to map console ring for domain#%u (rc=%d)",
 			domain->domid, rc);
 		return rc;
 	}
 
 	console->int_buf = xenlib_osal_memalloc(XEN_CONSOLE_BUFFER_SZ);
 	if (!console->int_buf) {
-		LOG_ERR("Failed to allocate domain console buffer");
+		XENLIB_OSAL_LOG_ERR("Failed to allocate domain console buffer");
 		rc = -ENOMEM;
 		goto unmap_ring;
 	}
@@ -259,13 +259,14 @@ static int xen_init_domain_console(struct xen_domain *domain)
 	xenlib_osal_semaphore_init(&console->int_sem, 1, 1);
 	xenlib_osal_mutex_init(&console->lock);
 
-	LOG_DBG("%s: bind evtchn %u as %u\n", __func__, console->evtchn,
+	XENLIB_OSAL_LOG_DBG("%s: bind evtchn %u as %u\n", __func__, console->evtchn,
 	       console->local_evtchn);
 
 	rc = hvm_set_parameter(HVM_PARAM_CONSOLE_EVTCHN, domain->domid,
 			       console->evtchn);
 	if (rc) {
-		LOG_ERR("Failed to set domain console evtchn param (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set domain console evtchn param (rc=%d)",
+			rc);
 		goto err_unbind;
 	}
 
@@ -290,24 +291,26 @@ int xen_start_domain_console(struct xen_domain *domain)
 	struct xen_domain_console *console;
 
 	if (!domain) {
-		LOG_ERR("No domain passed to attach_domain_console");
+		XENLIB_OSAL_LOG_ERR("No domain passed to attach_domain_console");
 		return -ESRCH;
 	}
 
 	if (domain->f_dom0less) {
-		LOG_ERR("dom0less domain#%u console operation not supported", domain->domid);
+		XENLIB_OSAL_LOG_ERR("dom0less domain#%u console operation not supported",
+			domain->domid);
 		return -ENOTSUP;
 	}
 
 	console = &domain->console;
 	if (console->ext_tid) {
-		LOG_ERR("Console thread is already running for this domain!");
+		XENLIB_OSAL_LOG_ERR("Console thread is already running for this domain!");
 		return -EBUSY;
 	}
 
 	rc = xen_init_domain_console(domain);
 	if (rc) {
-		LOG_ERR("Unable to init domain#%u console (rc=%d)", domain->domid, rc);
+		XENLIB_OSAL_LOG_ERR("Unable to init domain#%u console (rc=%d)",
+			domain->domid, rc);
 		return rc;
 	}
 
@@ -338,19 +341,20 @@ int xen_stop_domain_console(struct xen_domain *domain)
 	struct xen_domain_console *console;
 
 	if (!domain) {
-		LOG_ERR("No domain passed to attach_domain_console");
+		XENLIB_OSAL_LOG_ERR("No domain passed to attach_domain_console");
 		return -ESRCH;
 	}
 
 	if (domain->f_dom0less) {
-		LOG_ERR("dom0less domain#%u console operation not supported", domain->domid);
+		XENLIB_OSAL_LOG_ERR("dom0less domain#%u console operation not supported",
+			domain->domid);
 		return -ENOTSUP;
 	}
 
 	console = &domain->console;
 
 	if (!console->ext_tid) {
-		LOG_ERR("No console thread is running!");
+		XENLIB_OSAL_LOG_ERR("No console thread is running!");
 		return -ESRCH;
 	}
 
@@ -379,14 +383,14 @@ int xen_stop_domain_console(struct xen_domain *domain)
 
 	rc = evtchn_close(console->local_evtchn);
 	if (rc) {
-		LOG_ERR("Unable to close event channel#%u",
+		XENLIB_OSAL_LOG_ERR("Unable to close event channel#%u",
 			console->local_evtchn);
 		err = rc;
 	}
 
 	rc = xenmem_unmap_region(1, console->intf);
 	if (rc < 0) {
-		LOG_ERR("Failed to unmap domain#%u console ring (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap domain#%u console ring (rc=%d)",
 			domain->domid, rc);
 		err = rc;
 	}
@@ -485,12 +489,13 @@ int xen_attach_domain_console(const xenlib_osal_shell_t *shell,
 	struct xen_domain_console *console;
 
 	if (!domain) {
-		LOG_ERR("No domain passed to attach_domain_console");
+		XENLIB_OSAL_LOG_ERR("No domain passed to attach_domain_console");
 		return -ESRCH;
 	}
 
 	if (domain->f_dom0less) {
-		LOG_ERR("dom0less domain#%u console operation not supported", domain->domid);
+		XENLIB_OSAL_LOG_ERR("dom0less domain#%u console operation not supported",
+			domain->domid);
 		return -ENOTSUP;
 	}
 
@@ -539,7 +544,7 @@ int set_console_feed_cb(struct xen_domain *domain, on_console_feed_cb_t cb, void
 	struct xen_domain_console *console;
 
 	if (!domain) {
-		LOG_ERR("No domain passed to %s", __func__);
+		XENLIB_OSAL_LOG_ERR("No domain passed to %s", __func__);
 		return -ESRCH;
 	}
 

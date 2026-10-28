@@ -32,7 +32,7 @@
 #include <xstat.h>
 #endif
 
-LOG_MODULE_REGISTER(xen_dom_mgmt);
+XENLIB_OSAL_LOG_MODULE_REGISTER(xen_dom_mgmt);
 
 struct modules_address {
   uint64_t ventry;
@@ -105,25 +105,29 @@ static int allocate_domain_evtchns(struct xen_domain *domain)
 	/* TODO: Alloc all required evtchns */
 	rc = alloc_unbound_event_channel_dom0(domain->domid, 0);
 	if (rc < 0) {
-		LOG_ERR("Failed to alloc evtchn for domain#%u xenstore (rc=%d)", domain->domid,
+		XENLIB_OSAL_LOG_ERR("Failed to alloc evtchn for domain#%u xenstore (rc=%d)",
+			domain->domid,
 		       rc);
 		return rc;
 	}
 	domain->xenstore.remote_evtchn = rc;
 
-	LOG_DBG("Generated remote_domid=%d, remote_evtchn = %d", domain->domid,
+	XENLIB_OSAL_LOG_DBG("Generated remote_domid=%d, remote_evtchn = %d",
+		domain->domid,
 		domain->xenstore.remote_evtchn);
 
 	rc = alloc_unbound_event_channel_dom0(domain->domid, 0);
 	if (rc < 0) {
-		LOG_ERR("Failed to alloc evtchn for domain#%u console (rc=%d)", domain->domid,
-		       rc);
+		XENLIB_OSAL_LOG_ERR("Failed to alloc evtchn for domain#%u console (rc=%d)",
+			domain->domid,
+			rc);
 		return rc;
 	}
 	domain->console.evtchn = rc;
 
-	LOG_DBG("Generated remote_domid = %u, console evtchn = %u", domain->domid,
-	       domain->console.evtchn);
+	XENLIB_OSAL_LOG_DBG("Generated remote_domid = %u, console evtchn = %u",
+		domain->domid,
+		domain->console.evtchn);
 
 	return 0;
 }
@@ -140,7 +144,8 @@ static int allocate_magic_pages(int domid)
 						PFN_4K_SHIFT,
 						NR_MAGIC_PAGES);
 	if (populated_gfn != NR_MAGIC_PAGES) {
-		LOG_ERR("Failed to populate magic pages for domid#%d (ret=%llu expected=%u)",
+		XENLIB_OSAL_LOG_ERR("Failed to populate magic pages for domid#%d "
+			"(ret=%llu expected=%u)",
 			domid, populated_gfn, NR_MAGIC_PAGES);
 			return rc;
 	}
@@ -148,7 +153,7 @@ static int allocate_magic_pages(int domid)
 	rc = xenmem_map_region(domid, NR_MAGIC_PAGES,
 			       gfn_magic_base, &mapped_magic);
 	if (rc) {
-		LOG_ERR("Failed to map GFN to Dom0 (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to map GFN to Dom0 (rc=%d)", rc);
 		return rc;
 	}
 
@@ -160,14 +165,14 @@ static int allocate_magic_pages(int domid)
 	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_magic,
 			   XEN_PAGE_SIZE * NR_MAGIC_PAGES);
 	if (rc) {
-		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
 		err_cache_flush = rc;
 	}
 
 	rc = xenmem_unmap_region(NR_MAGIC_PAGES, mapped_magic);
 	if (rc) {
-		LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
 			domid, rc);
 	}
 	/*
@@ -182,7 +187,7 @@ static int allocate_magic_pages(int domid)
 	rc = hvm_set_parameter(HVM_PARAM_CONSOLE_PFN, domid,
 			       gfn_magic_base + CONSOLE_PFN_OFFSET);
 	if (rc) {
-		LOG_ERR("Failed to set HVM_PARAM_CONSOLE_PFN for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to set HVM_PARAM_CONSOLE_PFN for domid#%d (rc=%d)",
 			domid, rc);
 		return rc;
 	}
@@ -190,7 +195,7 @@ static int allocate_magic_pages(int domid)
 	rc = hvm_set_parameter(HVM_PARAM_STORE_PFN, domid,
 			       gfn_magic_base + XENSTORE_PFN_OFFSET);
 	if (rc) {
-		LOG_ERR("Failed to set HVM_PARAM_STORE_PFN for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to set HVM_PARAM_STORE_PFN for domid#%d (rc=%d)",
 			domid, rc);
 	}
 
@@ -207,7 +212,7 @@ static int prepare_domain_physmap(int domid, uint64_t base_pfn, struct xen_domai
 
 	rc = allocate_magic_pages(domid);
 	if (rc) {
-		LOG_ERR("Failed to allocate magic pages for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to allocate magic pages for domid#%d (rc=%d)",
 			domid, rc);
 		return rc;
 	}
@@ -215,7 +220,8 @@ static int prepare_domain_physmap(int domid, uint64_t base_pfn, struct xen_domai
 	populated_gfn = xenmem_populate_physmap(domid, base_pfn, PFN_2M_SHIFT,
 						nr_mem_exts);
 	if (populated_gfn != nr_mem_exts) {
-		LOG_ERR("Failed to populate physmap for domid#%d (populated only %llu instead of %llu)",
+		XENLIB_OSAL_LOG_ERR("Failed to populate physmap for domid#%d (populated "
+			"only %llu instead of %llu)",
 			domid, populated_gfn, nr_mem_exts);
 		return -ENOMEM;
 	}
@@ -235,13 +241,14 @@ static uint64_t get_dtb_addr(uint64_t rambase, uint64_t ramsize,
 	const uint64_t modsize = dtb_len;
 	uint64_t modbase;
 
-	LOG_INF("rambase = %llx, ramsize = %llu", rambase, ramsize);
-	LOG_INF("kernbase = %llx kernsize = %llu, dtbsize = %llu",
+	XENLIB_OSAL_LOG_INF("rambase = %llx, ramsize = %llu", rambase, ramsize);
+	XENLIB_OSAL_LOG_INF("kernbase = %llx kernsize = %llu, dtbsize = %llu",
 		   kernbase, kernsize, dtbsize);
-	LOG_INF("kernsize_aligned = %lld", kernsize_aligned);
+	XENLIB_OSAL_LOG_INF("kernsize_aligned = %lld", kernsize_aligned);
 
 	if (modsize + kernsize_aligned > ramsize) {
-		LOG_ERR("Not enough memory in the first bank for the kernel+dtb+initrd");
+		XENLIB_OSAL_LOG_ERR("Not enough memory in the first bank for the "
+			"kernel+dtb+initrd");
 		return 0;
 	}
 
@@ -290,7 +297,7 @@ static uint64_t get_dtb_addr(uint64_t rambase, uint64_t ramsize,
 	else if (kernbase - rambase > modsize)
 		modbase = kernbase - modsize;
 	else {
-		LOG_ERR("Unable to find suitable location for dtb+initrd");
+		XENLIB_OSAL_LOG_ERR("Unable to find suitable location for dtb+initrd");
 		return 0;
 	}
 
@@ -309,14 +316,15 @@ static int load_dtb(int domid, uint64_t dtb_addr, const char *dtb_start,
 	rc = xenmem_map_region(domid, nr_pages,
 				XEN_PHYS_PFN(dtb_addr), &mapped_dtb_addr);
 	if (rc) {
-		LOG_ERR("Failed to map domain dtb region to Dom0 (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to map domain dtb region to Dom0 (rc=%d)",
+			rc);
 		return rc;
 	}
 
 	dtb_pfn = XEN_PHYS_PFN((uint64_t)mapped_dtb_addr);
-	LOG_DBG("DTB start addr = %p, end addr = %p, binary size = 0x%llx", dtb_start,
-	       dtb_end, dtb_size);
-	LOG_INF("DTB will be placed on addr = %p", (void *)dtb_addr);
+	XENLIB_OSAL_LOG_DBG("DTB start addr = %p, end addr = %p, binary size = 0x%llx",
+		dtb_start, dtb_end, dtb_size);
+	XENLIB_OSAL_LOG_INF("DTB will be placed on addr = %p", (void *)dtb_addr);
 
 	/* Copy binary to domain pages and flush cache */
 	memcpy(mapped_dtb_addr, dtb_start, dtb_size);
@@ -327,14 +335,14 @@ static int load_dtb(int domid, uint64_t dtb_addr, const char *dtb_start,
 	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_dtb_addr,
 			   XEN_PAGE_SIZE * nr_pages);
 	if (rc) {
-		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
 		err_cache_flush = rc;
 	}
 
 	rc = xenmem_unmap_region(nr_pages, mapped_dtb_addr);
 	if (rc) {
-		LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
 			domid, rc);
 	}
 	/*
@@ -367,14 +375,14 @@ static int probe_zimage(int domid, uint64_t base_addr,
 	uint64_t load_addr;
 
 	if (!domcfg->load_image_bytes || !domcfg->get_image_size) {
-		LOG_ERR("Image callbacks were not set\n");
+		XENLIB_OSAL_LOG_ERR("Image callbacks were not set\n");
 		return -EINVAL;
 	}
 
 	rc = domcfg->load_image_bytes((uint8_t *)&zhdr, sizeof(zhdr),
 					image_read_offset, domcfg->image_info);
 	if (rc < 0) {
-		LOG_ERR("Error calling load_image_bytes rc: %d\n", rc);
+		XENLIB_OSAL_LOG_ERR("Error calling load_image_bytes rc: %d\n", rc);
 		return rc;
 	}
 
@@ -383,12 +391,13 @@ static int probe_zimage(int domid, uint64_t base_addr,
 
 	rc = domcfg->get_image_size(domcfg->image_info, &domain_size);
 	if (rc < 0 || domain_size == 0) {
-		LOG_ERR("Error calling get_image_size rc: %d\n", rc);
+		XENLIB_OSAL_LOG_ERR("Error calling get_image_size rc: %d\n", rc);
 		return rc;
 	}
 
 	nr_pages = DIV_ROUND_UP(domain_size, XEN_PAGE_SIZE);
-	LOG_DBG("zImage header info: text_offset = %llx, base_addr = %llx, pages = %llu size = %llu",
+	XENLIB_OSAL_LOG_DBG("zImage header info: text_offset = %llx, base_addr = "
+		"%llx, pages = %llu size = %llu",
 		zhdr.text_offset, base_addr, nr_pages,
 		nr_pages * XEN_PAGE_SIZE);
 
@@ -397,42 +406,42 @@ static int probe_zimage(int domid, uint64_t base_addr,
 			   (void *)domcfg->dtb_start,
 			   domcfg->dtb_end - domcfg->dtb_start, domid);
 	if (rc || fdt_size == 0) {
-		LOG_ERR("Failed to generate domain FDT (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to generate domain FDT (rc=%d)", rc);
 		return -ENOMEM;
 	}
 
 	dtb_addr = get_dtb_addr(base_addr, KB(domcfg->mem_kb), load_addr,
 				domain_size, fdt_size);
 	if (!dtb_addr) {
-		LOG_ERR("Failed to get dtb addr for domid#%d", domid);
+		XENLIB_OSAL_LOG_ERR("Failed to get dtb addr for domid#%d", domid);
 		goto out_dtb;
 	}
 
 	modules->dtb_addr = dtb_addr;
 	rc = load_dtb(domid, dtb_addr, fdt, fdt + fdt_size);
 	if (rc) {
-		LOG_ERR("Failed to load dtb dor domid#%d (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to load dtb dor domid#%d (rc=%d)", domid, rc);
 		goto out_dtb;
 	}
 
 	rc = xenmem_map_region(domid, nr_pages, load_gfn, &mapped_image);
 	if (rc) {
-		LOG_ERR("Failed to map GFN to Dom0 (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Failed to map GFN to Dom0 (rc=%d)", rc);
 		goto out_dtb;
 	}
 
-	LOG_DBG("Zephyr Domain start addr = %p, binary size = 0x%llx",
+	XENLIB_OSAL_LOG_DBG("Zephyr Domain start addr = %p, binary size = 0x%llx",
 		mapped_image, domain_size);
 
 	/* Copy binary to domain pages and clear cache */
 	rc = domcfg->load_image_bytes(mapped_image, domain_size,
 				      image_read_offset, domcfg->image_info);
 	if (rc < 0) {
-		LOG_ERR("Error calling load_image_bytes rc: %d", rc);
+		XENLIB_OSAL_LOG_ERR("Error calling load_image_bytes rc: %d", rc);
 		goto out_dtb;
 	}
 
-	LOG_DBG("Kernel image is copied");
+	XENLIB_OSAL_LOG_DBG("Kernel image is copied");
 	/*
 	 * This is not critical, so try to restore memory to dom0
 	 * and then return error code.
@@ -440,14 +449,14 @@ static int probe_zimage(int domid, uint64_t base_addr,
 	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_image,
 			   XEN_PAGE_SIZE * nr_pages);
 	if (rc) {
-		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
 		err_cache_flush = rc;
 	}
 
 	rc = xenmem_unmap_region(nr_pages, mapped_image);
 	if (rc) {
-		LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
+		XENLIB_OSAL_LOG_ERR("Failed to unmap memory for domid#%d (rc=%d)",
 			domid, rc);
 		goto out_dtb;
 	}
@@ -480,14 +489,14 @@ static int probe_uimage(int domid, struct xen_domain_cfg *domcfg,
 	struct uimage_hdr uhdr;
 
 	if (!domcfg->load_image_bytes) {
-		LOG_ERR("load_image_bytes callback is not set");
+		XENLIB_OSAL_LOG_ERR("load_image_bytes callback is not set");
 		return -EINVAL;
 	}
 
 	rc = domcfg->load_image_bytes((uint8_t *)&uhdr, sizeof(uhdr), 0,
 				      domcfg->image_info);
 	if (rc < 0) {
-		LOG_ERR("Error calling load_image_bytes rc: %d", rc);
+		XENLIB_OSAL_LOG_ERR("Error calling load_image_bytes rc: %d", rc);
 		return rc;
 	}
 
@@ -522,7 +531,7 @@ static int load_modules(int domid, struct xen_domain_cfg *domcfg,
 
 	rc = prepare_domain_physmap(domid, base_pfn, domcfg);
 	if (rc) {
-		LOG_ERR("Error preparing physmap (rc=%d)", rc);
+		XENLIB_OSAL_LOG_ERR("Error preparing physmap (rc=%d)", rc);
 		return rc;
 	}
 
@@ -530,7 +539,7 @@ static int load_modules(int domid, struct xen_domain_cfg *domcfg,
 	if (rc) {
 		rc = probe_zimage(domid, base_addr, 0, domcfg, modules);
 		if (rc) {
-			LOG_ERR("Error loading image, unsupported format");
+			XENLIB_OSAL_LOG_ERR("Error loading image, unsupported format");
 			return rc;
 		}
 	}
@@ -546,7 +555,7 @@ static int share_domain_iomems(int domid, struct xen_domain_iomem *iomems,
 	for (i = 0; i < nr_iomem; i++) {
 		rc = xen_domctl_iomem_permission(domid, iomems[i].first_mfn, iomems[i].nr_mfns, 1);
 		if (rc) {
-			LOG_ERR("Failed to allow iomem access to mfn 0x%llx, (rc=%d)",
+			XENLIB_OSAL_LOG_ERR("Failed to allow iomem access to mfn 0x%llx, (rc=%d)",
 			       iomems[i].first_mfn, rc);
 		}
 
@@ -560,7 +569,8 @@ static int share_domain_iomems(int domid, struct xen_domain_iomem *iomems,
 						       iomems[i].first_mfn, iomems[i].nr_mfns, 1);
 		}
 		if (rc) {
-			LOG_ERR("Failed to map mfn 0x%llx (rc=%d)", iomems[i].first_mfn, rc);
+			XENLIB_OSAL_LOG_ERR("Failed to map mfn 0x%llx (rc=%d)",
+				iomems[i].first_mfn, rc);
 		}
 	}
 
@@ -574,7 +584,7 @@ static int bind_domain_irqs(int domid, uint32_t *irqs, int nr_irqs)
 	for (i = 0; i < nr_irqs; i++) {
 		rc = xen_domctl_bind_pt_irq(domid, irqs[i], PT_IRQ_TYPE_SPI, 0, 0, 0, 0, irqs[i]);
 		if (rc) {
-			LOG_ERR("Failed to bind irq#%u, (rc=%d)", irqs[i], rc);
+			XENLIB_OSAL_LOG_ERR("Failed to bind irq#%u, (rc=%d)", irqs[i], rc);
 			/*return rc;*/
 		}
 	}
@@ -589,7 +599,8 @@ static int assign_dtdevs(int domid, char *dtdevs[], int nr_dtdevs)
 	for (i = 0; i < nr_dtdevs; i++) {
 		rc = xen_domctl_assign_dt_device(domid, dtdevs[i]);
 		if (rc) {
-			LOG_ERR("Failed to assign dtdev %s (rc=%d)", dtdevs[i], rc);
+			XENLIB_OSAL_LOG_ERR("Failed to assign dtdev %s (rc=%d)", dtdevs[i],
+				rc);
 			return rc;
 		}
 	}
@@ -617,7 +628,7 @@ void put_domain(struct xen_domain *domain)
 	int rc;
 
 	if (!domain) {
-		LOG_ERR("Domain is NULL");
+		XENLIB_OSAL_LOG_ERR("Domain is NULL");
 		return;
 	}
 	__ASSERT(!domain->f_dom0less, "dom0less domain#%u operation not supported", domain->domid);
@@ -627,13 +638,14 @@ void put_domain(struct xen_domain *domain)
 	if (domain->refcount == 0) {
 		rc = xs_remove_xenstore_backends(domain);
 		if (rc) {
-			LOG_ERR("Failed to remove_xenstore_backends domain#%u (rc=%d)",
+			XENLIB_OSAL_LOG_ERR("Failed to remove_xenstore_backends domain#%u (rc=%d)",
 					domain->domid, rc);
 		}
 
 		rc = stop_domain_stored(domain);
 		if (rc) {
-			LOG_ERR("Failed to stop domain#%u store (rc=%d)", domain->domid, rc);
+			XENLIB_OSAL_LOG_ERR("Failed to stop domain#%u store (rc=%d)",
+				domain->domid, rc);
 		}
 
 		xs_deinitialize_domain_xenstore(domain->domid);
@@ -641,13 +653,14 @@ void put_domain(struct xen_domain *domain)
 	#ifdef CONFIG_XEN_CONSOLE_SRV
 		rc = xen_stop_domain_console(domain);
 		if (rc) {
-			LOG_ERR("Failed to stop domain#%u console (rc=%d)", domain->domid, rc);
+			XENLIB_OSAL_LOG_ERR("Failed to stop domain#%u console (rc=%d)", domain->domid, rc);
 		}
 	#endif
 
 		rc = xen_domctl_destroydomain(domain->domid);
 		if (rc) {
-			LOG_ERR("Failed to destroy domain#%u (rc=%d)", domain->domid, rc);
+			XENLIB_OSAL_LOG_ERR("Failed to destroy domain#%u (rc=%d)",
+				domain->domid, rc);
 		}
 
 		xenlib_osal_dlist_remove(&domain->node);
@@ -739,7 +752,7 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	char *name;
 
 	if (dom_num >= CONFIG_DOMU_MAX) {
-		LOG_ERR("Runtime exceeds maximum number of domains");
+		XENLIB_OSAL_LOG_ERR("Runtime exceeds maximum number of domains");
 		return -EINVAL;
 	}
 
@@ -748,13 +761,14 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	config.grant_opts = XEN_DOMCTL_GRANT_version(1);
 	rc = xen_domctl_createdomain(&domid, &config);
 	if (rc) {
-		LOG_ERR("Failed to create domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to create domain#%u (rc=%d)", domid, rc);
 		return rc;
 	}
 
 	domain = xenlib_osal_memalloc(sizeof(*domain));
 	if (domain == NULL) {
-		LOG_ERR("Can not allocate memory for domain#%u struct", domid);
+		XENLIB_OSAL_LOG_ERR("Can not allocate memory for domain#%u struct",
+			domid);
 		goto destroy_domain;
 	}
 	memset(domain, 0, sizeof(*domain));
@@ -769,14 +783,16 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	snprintf(domain->name, CONTAINER_NAME_SIZE, "%s", name);
 	rc = xen_domctl_max_vcpus(domid, domcfg->max_vcpus);
 	if (rc) {
-		LOG_ERR("Failed to set max vcpus for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set max vcpus for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 	domain->num_vcpus = domcfg->max_vcpus;
 
 	rc = xen_domctl_set_address_size(domid, 64);
 	if (rc) {
-		LOG_ERR("Failed to set adress size for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set adress size for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 	domain->address_size = 64;
@@ -784,49 +800,56 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	domain->max_mem_kb = domcfg->mem_kb + (domcfg->gnt_frames + NR_MAGIC_PAGES) * XEN_PAGE_SIZE;
 	rc = xen_domctl_max_mem(domid, domain->max_mem_kb);
 	if (rc) {
-		LOG_ERR("Failed to set max memory for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set max memory for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
 	/* Calculation according to xl.cfg manual for shadow memory (1MB/CPU + 8KB for every 1MB RAM */
 	rc = xen_domctl_set_paging_mempool_size(domid, domcfg->max_vcpus * 1024 * 1024 + 8 * domcfg->mem_kb);
 	if (rc) {
-		LOG_ERR("Failed to set paging mempool size for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set paging mempool size for domain#%u "
+			"(rc=%d)", domid, rc);
 		goto domain_free;
 	}
 
 	rc = allocate_domain_evtchns(domain);
 	if (rc) {
-		LOG_ERR("Failed to allocate event channel for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to allocate event channel for domain#%u "
+			"(rc=%d)", domid, rc);
 		goto domain_free;
 	}
 
 	rc = load_modules(domid, domcfg, &modules);
 	if (rc) {
-		LOG_ERR("Unable to load image for domain#%u, insufficient memory (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Unable to load image for domain#%u, insufficient "
+			"memory (rc=%d)", domid, rc);
 		goto domain_free;
 	}
 	if (!modules.ventry) {
-		LOG_ERR("Modules ventry is not set");
+		XENLIB_OSAL_LOG_ERR("Modules ventry is not set");
 		rc = -EINVAL;
 		goto domain_free;
 	}
 
 	rc = share_domain_iomems(domid, domcfg->iomems, domcfg->nr_iomems);
 	if (rc) {
-		LOG_ERR("Unable to share domain#%u iomems (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Unable to share domain#%u iomems (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
 	rc = bind_domain_irqs(domid, domcfg->irqs, domcfg->nr_irqs);
 	if (rc) {
-		LOG_ERR("Failed to bind irq for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to bind irq for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
 	rc = assign_dtdevs(domid, domcfg->dtdevs, domcfg->nr_dtdevs);
 	if (rc) {
-		LOG_ERR("Failed to assign dtdevs for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to assign dtdevs for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
@@ -839,20 +862,23 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 
 	rc = xen_domctl_setvcpucontext(domid, 0, &vcpu_ctx);
 	if (rc) {
-		LOG_ERR("Failed to set VCPU context for domain#%u (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to set VCPU context for domain#%u (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
 	rc = start_domain_stored(domain, XEN_PHYS_PFN(GUEST_MAGIC_BASE) + XENSTORE_PFN_OFFSET);
 	if (rc) {
-		LOG_ERR("Failed to start domain#%u stored (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to start domain#%u stored (rc=%d)",
+			domid, rc);
 		goto domain_free;
 	}
 
 #ifdef CONFIG_XEN_CONSOLE_SRV
 	rc = xen_start_domain_console(domain);
 	if (rc) {
-		LOG_ERR("Failed to start domain#%u console (rc=%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("Failed to start domain#%u console (rc=%d)",
+			domid, rc);
 		goto free_domain_stored;
 	}
 #endif
@@ -860,7 +886,7 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	xenlib_osal_mutex_lock(&create_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	if (find_domain_by_name(name) != 0) {
 		rc = -EEXIST;
-		LOG_ERR("Domain with name %s already exists", name);
+		XENLIB_OSAL_LOG_ERR("Domain with name %s already exists", name);
 		xenlib_osal_mutex_unlock(&create_mutex);
 		goto stop_domain_console;
 	}
@@ -875,7 +901,8 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	if (!domcfg->f_paused) {
 		rc = xen_domctl_unpausedomain(domid);
 		if (rc) {
-			LOG_ERR("Failed to unpause domain#%u (rc=%d)", domid, rc);
+			XENLIB_OSAL_LOG_ERR("Failed to unpause domain#%u (rc=%d)",
+				domid, rc);
 			goto stop_domain_console;
 		}
 	}
@@ -913,7 +940,7 @@ int domain_destroy(uint32_t domid)
 
 	domain = get_domain(domid);
 	if (!domain) {
-		LOG_ERR("Domain with domid#%u is not found", domid);
+		XENLIB_OSAL_LOG_ERR("Domain with domid#%u is not found", domid);
 		/* Domain with requested domid is not present in list */
 		return -EINVAL;
 	}
@@ -932,14 +959,14 @@ int domain_pause(uint32_t domid)
 
 	domain = get_domain(domid);
 	if (!domain) {
-		LOG_ERR("Domain with domid#%u is not found", domid);
+		XENLIB_OSAL_LOG_ERR("Domain with domid#%u is not found", domid);
 		/* Domain with requested domid is not present in list */
 		return -EINVAL;
 	}
 
 	rc = xen_domctl_pausedomain(domid);
 	if (rc) {
-		LOG_ERR("domain:%u pause failed (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("domain:%u pause failed (%d)", domid, rc);
 	}
 	put_domain(domain);
 
@@ -953,14 +980,14 @@ int domain_unpause(uint32_t domid)
 
 	domain = get_domain(domid);
 	if (!domain) {
-		LOG_ERR("Domain with domid#%u is not found", domid);
+		XENLIB_OSAL_LOG_ERR("Domain with domid#%u is not found", domid);
 		/* Domain with requested domid is not present in list */
 		return -EINVAL;
 	}
 
 	rc = xen_domctl_unpausedomain(domid);
 	if (rc) {
-		LOG_ERR("domain:%u unpause failed (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("domain:%u unpause failed (%d)", domid, rc);
 	}
 
 	put_domain(domain);
@@ -982,7 +1009,8 @@ int domain_post_create(const struct xen_domain_cfg *domcfg, uint32_t domid)
 		if (bc->disks[i].configured) {
 			rc = xs_add_pvblock_xenstore(&bc->disks[i], domid);
 			if (rc) {
-				LOG_ERR("Failed to initialize pvblock for domid#%u (rc=%d)",
+				XENLIB_OSAL_LOG_ERR("Failed to initialize pvblock for domid#%u "
+					"(rc=%d)",
 					domid, rc);
 				goto deinit;
 			}
@@ -995,7 +1023,8 @@ int domain_post_create(const struct xen_domain_cfg *domcfg, uint32_t domid)
 		if (bc->vifs[i].configured) {
 			rc = xs_add_pvnet_xenstore(&bc->vifs[i], domid, i);
 			if (rc) {
-				LOG_ERR("Failed to initialize pvnet for domid#%u (rc=%d)",
+				XENLIB_OSAL_LOG_ERR("Failed to initialize pvnet for domid#%u "
+					"(rc=%d)",
 					domid, rc);
 				goto deinit;
 			}
@@ -1009,7 +1038,8 @@ int domain_post_create(const struct xen_domain_cfg *domcfg, uint32_t domid)
 
 deinit:
 	put_domain(domain);
-	LOG_ERR("Failed to initialize xenstore for domid#%u (rc=%d)", domid, rc);
+	XENLIB_OSAL_LOG_ERR("Failed to initialize xenstore for domid#%u (rc=%d)",
+		domid, rc);
 	domain_destroy(domid);
 	return rc;
 }
@@ -1024,7 +1054,7 @@ static int dom0less_get_next_domain(uint32_t domid_start, struct xen_domctl_getd
 	for (i = domid_start; i < CONFIG_DOMU_MAX; i++) {
 		rc = xen_domctl_getdomaininfo(i, info);
 		if (rc && rc != -ESRCH) {
-			LOG_ERR("dom0less: getdomaininfo err (%d)", rc);
+			XENLIB_OSAL_LOG_ERR("dom0less: getdomaininfo err (%d)", rc);
 			break;
 		}
 		if (!rc) {
@@ -1044,7 +1074,8 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 
 	domain = xenlib_osal_memalloc(sizeof(*domain));
 	if (!domain) {
-		LOG_ERR("dom0less:domid:%u Can not allocate memory for domain", domid);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u Can not allocate memory for domain",
+			domid);
 		return -ENOMEM;
 	}
 	memset(domain, 0, sizeof(*domain));
@@ -1064,44 +1095,49 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 	 */
 	rc = hvm_get_parameter(HVM_PARAM_STORE_EVTCHN, domain->domid, &value);
 	if (rc) {
-		LOG_ERR("dom0less:domid:%u Get HVM_PARAM_STORE_EVTCHN err (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u Get HVM_PARAM_STORE_EVTCHN err (%d)",
+			domid, rc);
 		goto err_free;
 	}
 	domain->xenstore.remote_evtchn = value;
 
-	LOG_DBG("dom0less: remote_domid=%d, xenstore.remote_evtchn = %d", domain->domid,
+	XENLIB_OSAL_LOG_DBG("dom0less: remote_domid=%d, xenstore.remote_evtchn = %d",
+		domain->domid,
 		domain->xenstore.remote_evtchn);
 
 	rc = hvm_get_parameter(HVM_PARAM_STORE_PFN, domid, &xenstore_pfn);
 	if (rc < 0) {
-		LOG_ERR("dom0less:domid:%u Get HVM_PARAM_STORE_PFN err (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u Get HVM_PARAM_STORE_PFN err (%d)",
+			domid, rc);
 		goto err_free;
 	}
 
-	LOG_DBG("dom0less:domid:%u STORE_PFN %llx", domid, xenstore_pfn);
+	XENLIB_OSAL_LOG_DBG("dom0less:domid:%u STORE_PFN %llx", domid, xenstore_pfn);
 
 	/* Domain lacks 'xen,enhanced' or is a legacy guest requiring external allocation */
 	if (xenstore_pfn == ~0ULL) {
-		LOG_ERR("dom0less:domid:%u Invalid STORE_PFN", domid);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u Invalid STORE_PFN", domid);
 		rc = -ENODEV;
 		goto err_free;
 	}
 
 	rc = start_domain_stored(domain, xenstore_pfn);
 	if (rc) {
-		LOG_ERR("dom0less:domid:%u start Xenstore err (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u start Xenstore err (%d)",
+			domid, rc);
 		goto err_free;
 	}
 
 	rc = xs_initialize_xenstore(domid, domain);
 	if (rc) {
-		LOG_ERR("dom0less:domid:%u init Xenstore err (%d)", domid, rc);
+		XENLIB_OSAL_LOG_ERR("dom0less:domid:%u init Xenstore err (%d)",
+			domid, rc);
 		goto err_free_stored;
 	}
 
 	notify_evtchn(domain->xenstore.remote_evtchn);
 
-	LOG_DBG("dom0less:domid:%u attached", domid);
+	XENLIB_OSAL_LOG_DBG("dom0less:domid:%u attached", domid);
 
 	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	xenlib_osal_dnode_init(&domain->node);
@@ -1142,7 +1178,7 @@ static int dom0less_init(void)
 		created_doms++;
 	} while (rc < CONFIG_DOMU_MAX);
 
-	LOG_INF("dom0less: attached %d domains", created_doms);
+	XENLIB_OSAL_LOG_INF("dom0less: attached %d domains", created_doms);
 
 	return rc == -ESRCH ? 0 : rc;
 }
@@ -1156,14 +1192,14 @@ static int init_domain0(void)
 
 	ret = xen_domctl_getdomaininfo(0, &dominfo);
 	if (ret) {
-		LOG_ERR("init: getdomaininfo err (%d)", ret);
+		XENLIB_OSAL_LOG_ERR("init: getdomaininfo err (%d)", ret);
 		return ret;
 	}
 
 	dom0 = xenlib_osal_memalloc(sizeof(*dom0));
 	if (!dom0) {
 		ret = -ENOMEM;
-		LOG_ERR("Can't allocate memory for dom0 domain struct");
+		XENLIB_OSAL_LOG_ERR("Can't allocate memory for dom0 domain struct");
 		goto out;
 	}
 	memset(dom0, 0, sizeof(*dom0));
@@ -1175,18 +1211,20 @@ static int init_domain0(void)
 
 	ret = xs_init_root();
 	if (ret) {
-		LOG_ERR("Failed to init Xenstore root node");
+		XENLIB_OSAL_LOG_ERR("Failed to init Xenstore root node");
 		goto out;
 	}
 
 	ret = xss_write("/tool/xenstored", "");
 	if (ret) {
-		LOG_ERR("Failed to create /tool/xenstored node, err = %d", ret);
+		XENLIB_OSAL_LOG_ERR("Failed to create /tool/xenstored node, err = %d",
+			ret);
 	}
 
 	ret = xs_initialize_xenstore(0, dom0);
 	if (ret) {
-		LOG_ERR("Failed to add Domain-0 xenstore entries, err = %d", ret);
+		XENLIB_OSAL_LOG_ERR("Failed to add Domain-0 xenstore entries, err = %d",
+			ret);
 	}
 
 #ifdef CONFIG_XEN_DOM0LESS_BOOT
