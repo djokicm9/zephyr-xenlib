@@ -16,7 +16,7 @@ extern "C" {
 
 struct buffered_data {
 	/* Used to link buffers into singly-linked list */
-	sys_snode_t node;
+	xenlib_osal_snode_t node;
 	/* The number of bytes that was processed for read/write */
 	size_t used;
 	/* The total size of message header and payload */
@@ -26,7 +26,7 @@ struct buffered_data {
 };
 
 struct xenstore {
-	sys_slist_t out_list;
+	xenlib_osal_slist_t out_list;
 	struct buffered_data *in;
 	/* Count the number of used out buffers to prevent Denial of Service attacks */
 	int used_out_bufs;

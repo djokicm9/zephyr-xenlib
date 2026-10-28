@@ -50,7 +50,7 @@ LOG_MODULE_REGISTER(xenstore);
 #define INIT_XENSTORE_UUID_BUF_SIZE 40
 
 struct xs_permissions {
-	sys_snode_t node;
+	xenlib_osal_snode_t node;
 	enum xs_perm perms;
 	domid_t domid;
 };
@@ -58,10 +58,10 @@ struct xs_permissions {
 struct xs_entry {
 	char *key;
 	char *value;
-	sys_slist_t perms;
-	sys_dlist_t child_list;
+	xenlib_osal_slist_t perms;
+	xenlib_osal_dlist_t child_list;
 
-	sys_dnode_t node;
+	xenlib_osal_dnode_t node;
 };
 
 struct watch_entry {
@@ -70,14 +70,14 @@ struct watch_entry {
 	struct xen_domain *domain;
 	bool is_relative;
 
-	sys_dnode_t node;
+	xenlib_osal_dnode_t node;
 };
 
 struct pending_watch_event_entry {
 	char *key;
 	struct xen_domain *domain;
 
-	sys_dnode_t node;
+	xenlib_osal_dnode_t node;
 };
 
 static K_THREAD_STACK_ARRAY_DEFINE(xenstore_thrd_stack,
@@ -92,9 +92,10 @@ static K_MUTEX_DEFINE(xsel_mutex);
 static K_MUTEX_DEFINE(pfl_mutex);
 static K_MUTEX_DEFINE(wel_mutex);
 
-static sys_dlist_t watch_entry_list = SYS_DLIST_STATIC_INIT(&watch_entry_list);
-static sys_dlist_t pending_watch_event_list =
-		   SYS_DLIST_STATIC_INIT(&pending_watch_event_list);
+static xenlib_osal_dlist_t watch_entry_list =
+		   XENLIB_OSAL_DLIST_STATIC_INIT(&watch_entry_list);
+static xenlib_osal_dlist_t pending_watch_event_list =
+		   XENLIB_OSAL_DLIST_STATIC_INIT(&pending_watch_event_list);
 
 static struct xs_entry root_xenstore;
 
@@ -233,7 +234,7 @@ struct watch_entry *key_to_watcher(char *key, bool complete, char *token)
 	struct watch_entry *iter;
 	size_t keyl = strlen(key);
 
-	SYS_DLIST_FOR_EACH_CONTAINER (&watch_entry_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER (&watch_entry_list, iter, node) {
 		if ((!complete || strlen(key) == strlen(iter->key)) &&
 		    memcmp(iter->key, key, keyl) == 0 &&
 		    (token == NULL || strlen(token) == 0 ||
@@ -283,7 +284,8 @@ static int construct_path(const char *payload, uint32_t domid, char **path)
 
 static bool is_owner(struct xs_entry *entry, uint32_t caller_domid)
 {
-	struct xs_permissions *owner = SYS_SLIST_PEEK_HEAD_CONTAINER(&entry->perms, owner, node);
+	struct xs_permissions *owner =
+			   XENLIB_OSAL_SLIST_PEEK_HEAD_CONTAINER(&entry->perms, owner, node);
 
 	if (owner && owner->domid == caller_domid) {
 		return true;
@@ -301,13 +303,14 @@ static bool check_perms(struct xs_entry *entry, uint32_t perms, uint32_t caller_
 		return true;
 	}
 
-	SYS_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
 		if (iter->domid == caller_domid) {
 			return ((iter->perms & perms) == perms);
 		}
 	}
 
-	default_perms = SYS_SLIST_PEEK_HEAD_CONTAINER(&entry->perms, default_perms, node);
+	default_perms = XENLIB_OSAL_SLIST_PEEK_HEAD_CONTAINER(&entry->perms,
+			   default_perms, node);
 
 	/*
 	 * According to specification (https://wiki.xenproject.org/wiki/XenBus):
@@ -325,7 +328,7 @@ static struct xs_entry *key_to_entry(const char *key)
 {
 	char *tok, *tok_state;
 	struct xs_entry *next, *iter = NULL;
-	sys_dlist_t *inspected_list = &root_xenstore.child_list;
+	xenlib_osal_dlist_t *inspected_list = &root_xenstore.child_list;
 	char *key_buffer;
 	size_t keyl;
 
@@ -352,7 +355,8 @@ static struct xs_entry *key_to_entry(const char *key)
 	for (tok = strtok_r(key_buffer, "/", &tok_state);
 	     tok != NULL;
 	     tok = strtok_r(NULL, "/", &tok_state)) {
-		SYS_DLIST_FOR_EACH_CONTAINER_SAFE (inspected_list, iter, next, node) {
+		XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE (inspected_list,
+				   iter, next, node) {
 			if (strcmp(iter->key, tok) == 0) {
 				break;
 			}
@@ -406,7 +410,7 @@ static void handle_output(struct xenstore *xenstore)
 	int ret;
 	struct buffered_data *out;
 
-	out = SYS_SLIST_PEEK_HEAD_CONTAINER(&xenstore->out_list, out, node);
+	out = XENLIB_OSAL_SLIST_PEEK_HEAD_CONTAINER(&xenstore->out_list, out, node);
 	if (out == NULL) {
 		return;
 	}
@@ -427,7 +431,7 @@ static void handle_output(struct xenstore *xenstore)
 	 * can break something. So it's better to be safe than sorry.
 	 */
 	__ASSERT_NO_MSG(out->used == out->total_size);
-	sys_slist_remove(&xenstore->out_list, NULL, &out->node);
+	xenlib_osal_slist_remove(&xenstore->out_list, NULL, &out->node);
 	k_free(out->buffer);
 	k_free(out);
 	xenstore->used_out_bufs--;
@@ -442,7 +446,7 @@ static bool can_write(struct xenstore *xenstore)
 {
 	struct xenstore_domain_interface *intf = xenstore->domint;
 
-	return !sys_slist_is_empty(&xenstore->out_list) &&
+	return !xenlib_osal_slist_is_empty(&xenstore->out_list) &&
 		((intf->rsp_prod - intf->rsp_cons) < XENSTORE_RING_SIZE);
 }
 
@@ -501,7 +505,7 @@ static void send_reply_sz(struct xenstore *xenstore, uint32_t req_id,
 	memcpy(bdata->buffer, &header, sizeof(header));
 	memcpy(bdata->buffer + sizeof(header), data, len);
 
-	sys_slist_append(&xenstore->out_list, &bdata->node);
+	xenlib_osal_slist_append(&xenstore->out_list, &bdata->node);
 	xenstore->used_out_bufs++;
 }
 
@@ -565,7 +569,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 	}
 
 	/* Calculate total length of dirs child node names */
-	SYS_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
 		reply_sz += xenstore_str_byte_size(iter->key);
 	}
 
@@ -578,7 +582,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 	}
 
 	reply_sz = 0;
-	SYS_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
 		dir_name_len = xenstore_str_byte_size(iter->key);
 		memcpy(dir_list + reply_sz, iter->key, dir_name_len);
 		reply_sz += dir_name_len;
@@ -607,7 +611,7 @@ static int fire_watcher(struct xen_domain *domain, char *pending_path)
 	}
 
 	/* This function should be called when we already hold wel_mutex */
-	SYS_DLIST_FOR_EACH_CONTAINER(&watch_entry_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&watch_entry_list, iter, node) {
 		char *payload, *epath_buf = pending_path;
 		size_t token_len, payload_len;
 		size_t epath_len = pendkey_len + 1;
@@ -649,21 +653,21 @@ static int fire_watcher(struct xen_domain *domain, char *pending_path)
 	return 0;
 }
 
-static void free_perms(sys_slist_t *list)
+static void free_perms(xenlib_osal_slist_t *list)
 {
 	struct xs_permissions *iter, *next;
 
-	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(list, iter, next, node) {
-		sys_slist_remove(list, NULL, &iter->node);
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(list, iter, next, node) {
+		xenlib_osal_slist_remove(list, NULL, &iter->node);
 		k_free(iter);
 	}
 }
 
-static void remove_recurse(sys_dlist_t *children)
+static void remove_recurse(xenlib_osal_dlist_t *children)
 {
 	struct xs_entry *entry, *next;
 
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(children, entry, next, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(children, entry, next, node) {
 		free_node(entry);
 	}
 }
@@ -685,7 +689,7 @@ static void free_node(struct xs_entry *entry)
 	}
 
 	free_perms(&entry->perms);
-	sys_dlist_remove(&entry->node);
+	xenlib_osal_dlist_remove(&entry->node);
 	remove_recurse(&entry->child_list);
 	k_free(entry);
 }
@@ -696,9 +700,9 @@ static int set_perms_by_array(struct xs_entry *entry,
 {
 	size_t i;
 	struct xs_permissions *perms, *iter, *next;
-	sys_slist_t list_perm;
+	xenlib_osal_slist_t list_perm;
 
-	sys_slist_init(&list_perm);
+	xenlib_osal_slist_init(&list_perm);
 
 	/* Alloc new entries and save it in temporary list before removing old entries */
 	for (i = 0; i < perms_num; i++) {
@@ -708,13 +712,13 @@ static int set_perms_by_array(struct xs_entry *entry,
 		}
 		perms->domid = new_perms[i].domid;
 		perms->perms = new_perms[i].perm;
-		sys_slist_append(&list_perm, &perms->node);
+		xenlib_osal_slist_append(&list_perm, &perms->node);
 	}
 
 	free_perms(&entry->perms);
 	/* Here we must use SAFE macros, because we're inserting entries to another list */
-	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&list_perm, iter, next, node) {
-		sys_slist_append(&entry->perms, &iter->node);
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(&list_perm, iter, next, node) {
+		xenlib_osal_slist_append(&entry->perms, &iter->node);
 	}
 
 	return 0;
@@ -788,19 +792,19 @@ static int inherit_perms(struct xs_entry *entry,
 
 		perms->domid = owner_domid;
 		perms->perms = XS_PERM_NONE;
-		sys_slist_append(&entry->perms, &perms->node);
+		xenlib_osal_slist_append(&entry->perms, &perms->node);
 
 		return 0;
 	}
 
-	SYS_SLIST_FOR_EACH_CONTAINER(&parent_entry->perms, iter, node) {
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&parent_entry->perms, iter, node) {
 		perms = k_malloc(sizeof(*perms));
 		if (!perms) {
 			goto alloc_err;
 		}
 		perms->domid = iter->domid;
 		perms->perms = iter->perms;
-		sys_slist_append(&entry->perms, &perms->node);
+		xenlib_osal_slist_append(&entry->perms, &perms->node);
 	}
 
 	return 0;
@@ -838,7 +842,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 	parent_entry = &root_xenstore;
 
 	for (tok = strtok_r(path, "/", &tok_state); tok != NULL; tok = strtok_r(NULL, "/", &tok_state)) {
-		SYS_DLIST_FOR_EACH_CONTAINER(&parent_entry->child_list, iter, node) {
+		XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&parent_entry->child_list, iter, node) {
 			if (strcmp(iter->key, tok) == 0) {
 				break;
 			}
@@ -868,11 +872,11 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 			memcpy(iter->key, tok, namelen);
 			iter->key[namelen] = 0;
 			iter->value = NULL;
-			sys_slist_init(&iter->perms);
+			xenlib_osal_slist_init(&iter->perms);
 
-			sys_dlist_init(&iter->child_list);
-			sys_dnode_init(&iter->node);
-			sys_dlist_append(&parent_entry->child_list, &iter->node);
+			xenlib_osal_dlist_init(&iter->child_list);
+			xenlib_osal_dnode_init(&iter->node);
+			xenlib_osal_dlist_append(&parent_entry->child_list, &iter->node);
 			if (perms && perms_num) {
 				rc = set_perms_by_array(iter, perms, perms_num);
 			} else {
@@ -950,7 +954,7 @@ static int notify_watchers_deadline(const char *path, uint32_t caller_domid,
 		return rc;
 	}
 
-	SYS_DLIST_FOR_EACH_CONTAINER(&watch_entry_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&watch_entry_list, iter, node) {
 		if (strncmp(iter->key, path, strlen(iter->key))) {
 			continue;
 		}
@@ -968,9 +972,9 @@ static int notify_watchers_deadline(const char *path, uint32_t caller_domid,
 		strcpy(pentry->key, path);
 		pentry->domain = iter->domain;
 
-		sys_dnode_init(&pentry->node);
+		xenlib_osal_dnode_init(&pentry->node);
 		k_mutex_lock(&pfl_mutex, K_FOREVER);
-		sys_dlist_append(&pending_watch_event_list,
+		xenlib_osal_dlist_append(&pending_watch_event_list,
 				 &pentry->node);
 		k_mutex_unlock(&pfl_mutex);
 
@@ -1145,7 +1149,7 @@ static void xss_list_traverse_entry(struct xs_entry *entry, xss_traverse_callbac
 				    int depth)
 {
 	struct xs_entry *iter, *next;
-	sys_dlist_t *children;
+	xenlib_osal_dlist_t *children;
 
 	cb(data, entry->key, entry->value, depth);
 	depth++;
@@ -1156,7 +1160,7 @@ static void xss_list_traverse_entry(struct xs_entry *entry, xss_traverse_callbac
 	}
 
 	children = &entry->child_list;
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(children, iter, next, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(children, iter, next, node) {
 		xss_list_traverse_entry(iter, cb, data, depth);
 	}
 }
@@ -1164,7 +1168,7 @@ static void xss_list_traverse_entry(struct xs_entry *entry, xss_traverse_callbac
 int xss_list_traverse(const char *path, xss_traverse_callback_t cb, void *data)
 {
 	struct xs_entry *entry, *iter, *next;
-	sys_dlist_t *children;
+	xenlib_osal_dlist_t *children;
 	int depth = 0;
 
 	if (!cb) {
@@ -1182,7 +1186,7 @@ int xss_list_traverse(const char *path, xss_traverse_callback_t cb, void *data)
 	depth++;
 
 	children = &entry->child_list;
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(children, iter, next, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(children, iter, next, node) {
 		xss_list_traverse_entry(iter, cb, data, depth);
 	}
 
@@ -1300,7 +1304,8 @@ static void process_pending_watch_events(struct xen_domain *domain)
 
 	k_mutex_lock(&wel_mutex, K_FOREVER);
 	k_mutex_lock(&pfl_mutex, K_FOREVER);
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE (&pending_watch_event_list, iter, next, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE (&pending_watch_event_list,
+			   iter, next, node) {
 		int rc;
 
 		if (domain != iter->domain) {
@@ -1314,7 +1319,7 @@ static void process_pending_watch_events(struct xen_domain *domain)
 		}
 
 		k_free(iter->key);
-		sys_dlist_remove(&iter->node);
+		xenlib_osal_dlist_remove(&iter->node);
 		k_free(iter);
 
 	}
@@ -1342,7 +1347,7 @@ static char *serialize_perms(struct xs_entry *entry, size_t *total_size)
 	*total_size = 0;
 
 	/* Count the maximum needed memory for string at first */
-	SYS_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
 		/* max domid value (it counts terminating NULL) + permission char */
 		max_len += UINT32_MAX_STR_LEN + 1;
 	}
@@ -1352,7 +1357,7 @@ static char *serialize_perms(struct xs_entry *entry, size_t *total_size)
 		return NULL;
 	}
 
-	SYS_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
 		char wire_perm;
 		int rc;
 
@@ -1457,7 +1462,7 @@ static void remove_watch_entry(struct watch_entry *entry)
 {
 	k_free(entry->key);
 	k_free(entry->token);
-	sys_dlist_remove(&entry->node);
+	xenlib_osal_dlist_remove(&entry->node);
 	k_free(entry);
 }
 
@@ -1602,10 +1607,10 @@ static void handle_watch(struct xenstore *xenstore, uint32_t id, char *payload,
 		memcpy(wentry->token, token, len - path_len);
 		wentry->domain = domain;
 		wentry->is_relative = path_is_relative;
-		sys_dnode_init(&wentry->node);
+		xenlib_osal_dnode_init(&wentry->node);
 
 		k_mutex_lock(&wel_mutex, K_FOREVER);
-		sys_dlist_append(&watch_entry_list, &wentry->node);
+		xenlib_osal_dlist_append(&watch_entry_list, &wentry->node);
 		k_mutex_unlock(&wel_mutex);
 	}
 	send_reply(xenstore, id, XS_WATCH, "OK");
@@ -1624,10 +1629,10 @@ static void handle_watch(struct xenstore *xenstore, uint32_t id, char *payload,
 
 		memcpy(pentry->key, path, full_plen);
 		pentry->domain = domain;
-		sys_dnode_init(&pentry->node);
+		xenlib_osal_dnode_init(&pentry->node);
 
 		k_mutex_lock(&pfl_mutex, K_FOREVER);
-		sys_dlist_append(&pending_watch_event_list, &pentry->node);
+		xenlib_osal_dlist_append(&pending_watch_event_list, &pentry->node);
 		k_mutex_unlock(&pfl_mutex);
 
 		/* Notify domain thread about new pending event */
@@ -1752,7 +1757,7 @@ static void cleanup_domain_watches(struct xen_domain *domain)
 	struct pending_watch_event_entry *pwe_iter, *pwe_next;
 
 	k_mutex_lock(&wel_mutex, K_FOREVER);
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(&watch_entry_list, iter, next, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(&watch_entry_list, iter, next, node) {
 		if (iter->domain == domain) {
 			remove_watch_entry(iter);
 		}
@@ -1760,10 +1765,10 @@ static void cleanup_domain_watches(struct xen_domain *domain)
 	k_mutex_unlock(&wel_mutex);
 
 	k_mutex_lock(&pfl_mutex, K_FOREVER);
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(&pending_watch_event_list, pwe_iter,
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(&pending_watch_event_list, pwe_iter,
 					  pwe_next, node) {
 		if (pwe_iter->domain == domain) {
-			sys_dlist_remove(&pwe_iter->node);
+			xenlib_osal_dlist_remove(&pwe_iter->node);
 			k_free(pwe_iter->key);
 			k_free(pwe_iter);
 		}
@@ -1940,7 +1945,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 	xenstore = &domain->xenstore;
 	xenstore->domain = domain;
 	xenstore->in = NULL;
-	sys_slist_init(&xenstore->out_list);
+	xenlib_osal_slist_init(&xenstore->out_list);
 	xenstore->used_out_bufs = 0;
 	k_sem_init(&xenstore->xb_sem, 0, 1);
 	xenlib_osal_atomic_clear(&xenstore->thrd_stop);
@@ -2007,8 +2012,9 @@ static void free_buffered_data(struct xenstore *xenstore)
 {
 	struct buffered_data *iter, *next;
 
-	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&xenstore->out_list, iter, next, node) {
-		sys_slist_remove(&xenstore->out_list, NULL, &iter->node);
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(&xenstore->out_list, iter,
+			   next, node) {
+		xenlib_osal_slist_remove(&xenstore->out_list, NULL, &iter->node);
 		k_free(iter->buffer);
 		k_free(iter);
 		xenstore->used_out_bufs--;
@@ -2023,22 +2029,22 @@ static void free_buffered_data(struct xenstore *xenstore)
 	}
 }
 
-static void remove_ref_entries_recursive(uint32_t domid, sys_dlist_t *chlds)
+static void remove_ref_entries_recursive(uint32_t domid, xenlib_osal_dlist_t *chlds)
 {
 	struct xs_entry *entry, *next;
 	struct xs_permissions *perms, *iter_perm, *next_perm;
-	sys_snode_t *prev_node;
+	xenlib_osal_snode_t *prev_node;
 
-	SYS_DLIST_FOR_EACH_CONTAINER_SAFE(chlds, entry, next, node) {
-		perms = SYS_SLIST_PEEK_HEAD_CONTAINER(&entry->perms, perms, node);
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER_SAFE(chlds, entry, next, node) {
+		perms = XENLIB_OSAL_SLIST_PEEK_HEAD_CONTAINER(&entry->perms, perms, node);
 		if (perms->domid == domid) {
 			free_node(entry);
 		} else {
 			prev_node = NULL;
-			SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&entry->perms, iter_perm,
+			XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(&entry->perms, iter_perm,
 							  next_perm, node) {
 				if (iter_perm->domid == domid) {
-					sys_slist_remove(&entry->perms,
+					xenlib_osal_slist_remove(&entry->perms,
 							 prev_node,
 							 &iter_perm->node);
 					k_free(iter_perm);
@@ -2107,8 +2113,8 @@ int xs_init_root(void)
 		.perm = XS_PERM_NONE,
 	};
 
-	sys_dlist_init(&root_xenstore.child_list);
-	sys_dnode_init(&root_xenstore.node);
+	xenlib_osal_dlist_init(&root_xenstore.child_list);
+	xenlib_osal_dnode_init(&root_xenstore.node);
 
 	return set_perms_by_array(&root_xenstore, &permissions, 1);
 }
@@ -2275,12 +2281,12 @@ ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t t
 		return -ENOENT;
 	}
 
-	SYS_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
 		reply_sz += xenstore_str_byte_size(iter->key);
 	}
 
 	if (buf && len > 0) {
-		SYS_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
+		XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER(&entry->child_list, iter, node) {
 			size_t name_len = xenstore_str_byte_size(iter->key);
 			size_t copy_len;
 
@@ -2338,7 +2344,7 @@ ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms
 		return -ENOENT;
 	}
 
-	SYS_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
+	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&entry->perms, iter, node) {
 		if (used < perms_num) {
 			perms[used].domid = iter->domid;
 			perms[used].perm = iter->perms;

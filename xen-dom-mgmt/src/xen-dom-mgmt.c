@@ -22,6 +22,7 @@
 #include <mem-mgmt.h>
 #include <uimage.h>
 #include <zimage.h>
+#include <xenlib_osal.h>
 
 #ifdef CONFIG_XEN_CONSOLE_SRV
 #include <xen_console.h>
@@ -51,7 +52,7 @@ static int dom_num = 0;
 #define XEN_VERSION_MINOR 16
 #endif
 
-static sys_dlist_t domain_list = SYS_DLIST_STATIC_INIT(&domain_list);
+static xenlib_osal_dlist_t domain_list = XENLIB_OSAL_DLIST_STATIC_INIT(&domain_list);
 K_MUTEX_DEFINE(dl_mutex);
 K_MUTEX_DEFINE(create_mutex);
 
@@ -598,7 +599,7 @@ struct xen_domain *get_domain(uint32_t domid)
 	struct xen_domain *iter;
 
 	k_mutex_lock(&dl_mutex, K_FOREVER);
-	SYS_DLIST_FOR_EACH_CONTAINER (&domain_list, iter, node) {
+	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER (&domain_list, iter, node) {
 		if (iter->domid == domid) {
 			iter->refcount++;
 			break;
@@ -646,7 +647,7 @@ void put_domain(struct xen_domain *domain)
 			LOG_ERR("Failed to destroy domain#%u (rc=%d)", domain->domid, rc);
 		}
 
-		sys_dlist_remove(&domain->node);
+		xenlib_osal_dlist_remove(&domain->node);
 		--dom_num;
 		k_free(domain);
 	}
@@ -878,8 +879,8 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 
 	k_mutex_lock(&dl_mutex, K_FOREVER);
 	domain->refcount = 1;
-	sys_dnode_init(&domain->node);
-	sys_dlist_append(&domain_list, &domain->node);
+	xenlib_osal_dnode_init(&domain->node);
+	xenlib_osal_dlist_append(&domain_list, &domain->node);
 	++dom_num;
 	k_mutex_unlock(&dl_mutex);
 
@@ -1100,8 +1101,8 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 	LOG_DBG("dom0less:domid:%u attached", domid);
 
 	k_mutex_lock(&dl_mutex, K_FOREVER);
-	sys_dnode_init(&domain->node);
-	sys_dlist_append(&domain_list, &domain->node);
+	xenlib_osal_dnode_init(&domain->node);
+	xenlib_osal_dlist_append(&domain_list, &domain->node);
 	++dom_num;
 	k_mutex_unlock(&dl_mutex);
 

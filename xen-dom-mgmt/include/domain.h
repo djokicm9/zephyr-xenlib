@@ -220,7 +220,7 @@ struct xen_domain {
 	int num_vcpus;
 	int address_size;
 	uint64_t max_mem_kb;
-	sys_dnode_t node;
+	xenlib_osal_dnode_t node;
 	int refcount;
 
 	/* TODO: domains can have more than one console */
