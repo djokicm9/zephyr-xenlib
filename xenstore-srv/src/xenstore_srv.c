@@ -257,7 +257,7 @@ static int construct_path(const char *payload, uint32_t domid, char **path)
 		return rc;
 	}
 
-	*path = k_malloc(path_len + XENSTORE_MAX_LOCALPATH_LEN);
+	*path = xenlib_osal_memalloc(path_len + XENSTORE_MAX_LOCALPATH_LEN);
 	if (!*path) {
 		LOG_ERR("Failed to allocate memory for path");
 		return -ENOMEM;
@@ -269,12 +269,12 @@ static int construct_path(const char *payload, uint32_t domid, char **path)
 		len = snprintf(*path, path_len + XENSTORE_MAX_LOCALPATH_LEN,
 			       "/local/domain/%d/%s", domid, payload);
 		if (len < 0) {
-			k_free(*path);
+			xenlib_osal_memfree(*path);
 			return -EINVAL;
 		}
 
 		if ((size_t)len + 1 > XENSTORE_ABS_PATH_MAX) {
-			k_free(*path);
+			xenlib_osal_memfree(*path);
 			return -E2BIG;
 		}
 	}
@@ -345,7 +345,7 @@ static struct xs_entry *key_to_entry(const char *key)
 		return &root_xenstore;
 	}
 
-	key_buffer = k_malloc(keyl + 1);
+	key_buffer = xenlib_osal_memalloc(keyl + 1);
 	if (!key_buffer) {
 		LOG_ERR("Failed to allocate memory for path");
 		return NULL;
@@ -369,7 +369,7 @@ static struct xs_entry *key_to_entry(const char *key)
 		inspected_list = &iter->child_list;
 	}
 
-	k_free(key_buffer);
+	xenlib_osal_memfree(key_buffer);
 
 	return iter;
 }
@@ -432,8 +432,8 @@ static void handle_output(struct xenstore *xenstore)
 	 */
 	__ASSERT_NO_MSG(out->used == out->total_size);
 	xenlib_osal_slist_remove(&xenstore->out_list, NULL, &out->node);
-	k_free(out->buffer);
-	k_free(out);
+	xenlib_osal_memfree(out->buffer);
+	xenlib_osal_memfree(out);
 	xenstore->used_out_bufs--;
 
 	return;
@@ -484,16 +484,16 @@ static void send_reply_sz(struct xenstore *xenstore, uint32_t req_id,
 		return;
 	}
 
-	bdata = k_malloc(sizeof(*bdata));
+	bdata = xenlib_osal_memalloc(sizeof(*bdata));
 	if (!bdata) {
 		LOG_ERR("Failed to allocate memory for output buffer");
 		return;
 	}
 
 	bdata->used = 0;
-	bdata->buffer = k_malloc(total_size);
+	bdata->buffer = xenlib_osal_memalloc(total_size);
 	if (!bdata->buffer) {
-		k_free(bdata);
+		xenlib_osal_memfree(bdata);
 		LOG_ERR("Failed to allocate memory to store output data");
 		return;
 	}
@@ -554,7 +554,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 
 	k_mutex_lock(&xsel_mutex, K_FOREVER);
 	entry = key_to_entry(path);
-	k_free(path);
+	xenlib_osal_memfree(path);
 
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
@@ -573,7 +573,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 		reply_sz += xenstore_str_byte_size(iter->key);
 	}
 
-	dir_list = k_malloc(reply_sz);
+	dir_list = xenlib_osal_memalloc(reply_sz);
 	if (!dir_list) {
 		LOG_ERR("Failed to allocate memory for dir list");
 		send_errno(xenstore, id, ENOMEM);
@@ -590,7 +590,7 @@ static void handle_directory(struct xenstore *xenstore, uint32_t id,
 
 	k_mutex_unlock(&xsel_mutex);
 	send_reply_sz(xenstore, id, XS_DIRECTORY, dir_list, reply_sz);
-	k_free(dir_list);
+	xenlib_osal_memfree(dir_list);
 }
 
 static int fire_watcher(struct xen_domain *domain, char *pending_path)
@@ -635,7 +635,7 @@ static int fire_watcher(struct xen_domain *domain, char *pending_path)
 		}
 		payload_len += epath_len;
 
-		payload = k_malloc(payload_len);
+		payload = xenlib_osal_memalloc(payload_len);
 		if (!payload) {
 			return -ENOMEM;
 		}
@@ -647,7 +647,7 @@ static int fire_watcher(struct xen_domain *domain, char *pending_path)
 
 		send_reply_sz(&domain->xenstore, 0, XS_WATCH_EVENT, payload, payload_len);
 
-		k_free(payload);
+		xenlib_osal_memfree(payload);
 	}
 
 	return 0;
@@ -659,7 +659,7 @@ static void free_perms(xenlib_osal_slist_t *list)
 
 	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(list, iter, next, node) {
 		xenlib_osal_slist_remove(list, NULL, &iter->node);
-		k_free(iter);
+		xenlib_osal_memfree(iter);
 	}
 }
 
@@ -679,19 +679,19 @@ static void remove_recurse(xenlib_osal_dlist_t *children)
 static void free_node(struct xs_entry *entry)
 {
 	if (entry->key) {
-		k_free(entry->key);
+		xenlib_osal_memfree(entry->key);
 		entry->key = NULL;
 	}
 
 	if (entry->value) {
-		k_free(entry->value);
+		xenlib_osal_memfree(entry->value);
 		entry->value = NULL;
 	}
 
 	free_perms(&entry->perms);
 	xenlib_osal_dlist_remove(&entry->node);
 	remove_recurse(&entry->child_list);
-	k_free(entry);
+	xenlib_osal_memfree(entry);
 }
 
 static int set_perms_by_array(struct xs_entry *entry,
@@ -706,7 +706,7 @@ static int set_perms_by_array(struct xs_entry *entry,
 
 	/* Alloc new entries and save it in temporary list before removing old entries */
 	for (i = 0; i < perms_num; i++) {
-		perms = k_malloc(sizeof(*perms));
+		perms = xenlib_osal_memalloc(sizeof(*perms));
 		if (!perms) {
 			goto alloc_err;
 		}
@@ -745,13 +745,13 @@ static struct xs_perm_entry *deserialize_perms(const char *strings, const size_t
 		return NULL;
 	}
 
-	perms = k_malloc(sizeof(*perms) * (size_t)parsed_num);
+	perms = xenlib_osal_memalloc(sizeof(*perms) * (size_t)parsed_num);
 	if (!perms) {
 		return NULL;
 	}
 
 	if (xenstore_perm_parse_wire(strings, str_len, perms, (size_t)parsed_num) != parsed_num) {
-		k_free(perms);
+		xenlib_osal_memfree(perms);
 		return NULL;
 	}
 
@@ -772,7 +772,7 @@ static int set_perms_by_strings(struct xs_entry *entry, const char *perm_str,
 	}
 
 	rc = set_perms_by_array(entry, new_perms, perms_num);
-	k_free(new_perms);
+	xenlib_osal_memfree(new_perms);
 
 	return rc;
 }
@@ -785,7 +785,7 @@ static int inherit_perms(struct xs_entry *entry,
 
 	/* In case it's root entry, we set initial permissions */
 	if (!parent_entry) {
-		perms = k_malloc(sizeof(*perms));
+		perms = xenlib_osal_memalloc(sizeof(*perms));
 		if (!perms) {
 			goto ret_err;
 		}
@@ -798,7 +798,7 @@ static int inherit_perms(struct xs_entry *entry,
 	}
 
 	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER(&parent_entry->perms, iter, node) {
-		perms = k_malloc(sizeof(*perms));
+		perms = xenlib_osal_memalloc(sizeof(*perms));
 		if (!perms) {
 			goto alloc_err;
 		}
@@ -827,7 +827,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 	size_t data_len = xenstore_str_byte_size(data);
 	size_t namelen;
 
-	path = k_malloc(xenstore_str_byte_size(const_path));
+	path = xenlib_osal_memalloc(xenstore_str_byte_size(const_path));
 	if (!path) {
 		LOG_ERR("Failed to allocate memory for path\n");
 		return -ENOMEM;
@@ -836,7 +836,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 	strcpy(path, const_path);
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
-		k_free(path);
+		xenlib_osal_memfree(path);
 		return rc;
 	}
 	parent_entry = &root_xenstore;
@@ -855,7 +855,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 				goto free_allocated;
 			}
 
-			iter = k_malloc(sizeof(*iter));
+			iter = xenlib_osal_memalloc(sizeof(*iter));
 			if (!iter) {
 				LOG_ERR("Failed to allocate memory for xs entry");
 				rc = -ENOMEM;
@@ -863,9 +863,9 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 			}
 
 			namelen = strlen(tok);
-			iter->key = k_malloc(namelen + 1);
+			iter->key = xenlib_osal_memalloc(namelen + 1);
 			if (!iter->key) {
-				k_free(iter);
+				xenlib_osal_memfree(iter);
 				rc = -ENOMEM;
 				goto free_allocated;
 			}
@@ -902,7 +902,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 			goto free_allocated;
 		}
 
-		new_value = k_malloc(data_len);
+		new_value = xenlib_osal_memalloc(data_len);
 		if (!new_value) {
 			LOG_ERR("Failed to allocate memory for xs entry value");
 			rc = -ENOMEM;
@@ -910,7 +910,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 		}
 
 		if (iter->value) {
-			k_free(iter->value);
+			xenlib_osal_memfree(iter->value);
 		}
 
 		iter->value = new_value;
@@ -918,7 +918,7 @@ static int xss_do_write_deadline(const char *const_path, const char *data, uint3
 	}
 
 	k_mutex_unlock(&xsel_mutex);
-	k_free(path);
+	xenlib_osal_memfree(path);
 
 	return rc;
 
@@ -928,7 +928,7 @@ free_allocated:
 	}
 
 	k_mutex_unlock(&xsel_mutex);
-	k_free(path);
+	xenlib_osal_memfree(path);
 
 	return rc;
 }
@@ -959,12 +959,12 @@ static int notify_watchers_deadline(const char *path, uint32_t caller_domid,
 			continue;
 		}
 
-		pentry = k_malloc(sizeof(*pentry));
+		pentry = xenlib_osal_memalloc(sizeof(*pentry));
 		if (!pentry) {
 			goto pentry_fail;
 		}
 
-		pentry->key = k_malloc(xenstore_str_byte_size(path));
+		pentry->key = xenlib_osal_memalloc(xenstore_str_byte_size(path));
 		if (!pentry->key) {
 			goto pkey_fail;
 		}
@@ -986,7 +986,7 @@ static int notify_watchers_deadline(const char *path, uint32_t caller_domid,
 	return 0;
 
 pkey_fail:
-	k_free(pentry);
+	xenlib_osal_memfree(pentry);
 pentry_fail:
 	k_mutex_unlock(&wel_mutex);
 	LOG_WRN("Failed to notify Domain#%d about path %s, no memory",
@@ -1229,7 +1229,7 @@ static int construct_data(char *payload, int len, int path_len, char **data)
 		data_size++;
 	}
 
-	*data = k_malloc(data_size);
+	*data = xenlib_osal_memalloc(data_size);
 	if (!*data) {
 		return -ENOMEM;
 	}
@@ -1281,9 +1281,9 @@ static void _handle_write(struct xenstore *xenstore, uint32_t id,
 	notify_watchers(path, domain->domid);
 
 free_data:
-	k_free(data);
+	xenlib_osal_memfree(data);
 free_path:
-	k_free(path);
+	xenlib_osal_memfree(path);
 }
 
 static void handle_write(struct xenstore *xenstore, uint32_t id, char *payload,
@@ -1318,9 +1318,9 @@ static void process_pending_watch_events(struct xen_domain *domain)
 			goto out;
 		}
 
-		k_free(iter->key);
+		xenlib_osal_memfree(iter->key);
 		xenlib_osal_dlist_remove(&iter->node);
-		k_free(iter);
+		xenlib_osal_memfree(iter);
 
 	}
 out:
@@ -1352,7 +1352,7 @@ static char *serialize_perms(struct xs_entry *entry, size_t *total_size)
 		max_len += UINT32_MAX_STR_LEN + 1;
 	}
 
-	perm_str = k_malloc(max_len);
+	perm_str = xenlib_osal_memalloc(max_len);
 	if (!perm_str) {
 		return NULL;
 	}
@@ -1363,7 +1363,7 @@ static char *serialize_perms(struct xs_entry *entry, size_t *total_size)
 
 		rc = xenstore_perm_to_wire(iter->perms, &wire_perm);
 		if (rc) {
-			k_free(perm_str);
+			xenlib_osal_memfree(perm_str);
 			*total_size = 0;
 			return NULL;
 		}
@@ -1394,7 +1394,7 @@ static void handle_get_perms(struct xenstore *xenstore, uint32_t id,
 
 	k_mutex_lock(&xsel_mutex, K_FOREVER);
 	entry = key_to_entry_check_perm(path, xenstore->domain->domid, XS_PERM_READ);
-	k_free(path);
+	xenlib_osal_memfree(path);
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
 		send_errno(xenstore, id, ENOENT);
@@ -1409,7 +1409,7 @@ static void handle_get_perms(struct xenstore *xenstore, uint32_t id,
 	}
 
 	send_reply_sz(xenstore, id, XS_GET_PERMS, perm_str, ret_size);
-	k_free(perm_str);
+	xenlib_osal_memfree(perm_str);
 }
 
 static void handle_set_perms(struct xenstore *xenstore, uint32_t id,
@@ -1442,7 +1442,7 @@ static void handle_set_perms(struct xenstore *xenstore, uint32_t id,
 
 	k_mutex_lock(&xsel_mutex, K_FOREVER);
 	entry = key_to_entry_check_perm(path, xenstore->domain->domid, XS_PERM_NONE);
-	k_free(path);
+	xenlib_osal_memfree(path);
 	if (!entry && is_owner(entry, xenstore->domain->domid)) {
 		k_mutex_unlock(&xsel_mutex);
 		return;
@@ -1460,10 +1460,10 @@ static void handle_set_perms(struct xenstore *xenstore, uint32_t id,
 
 static void remove_watch_entry(struct watch_entry *entry)
 {
-	k_free(entry->key);
-	k_free(entry->token);
+	xenlib_osal_memfree(entry->key);
+	xenlib_osal_memfree(entry->token);
 	xenlib_osal_dlist_remove(&entry->node);
-	k_free(entry);
+	xenlib_osal_memfree(entry);
 }
 
 static void handle_reset_watches(struct xenstore *xenstore, uint32_t id,
@@ -1489,7 +1489,7 @@ static void handle_read(struct xenstore *xenstore, uint32_t id, char *payload,
 
 	k_mutex_lock(&xsel_mutex, K_FOREVER);
 	entry = key_to_entry_check_perm(path, xenstore->domain->domid, XS_PERM_READ);
-	k_free(path);
+	xenlib_osal_memfree(path);
 
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
@@ -1588,17 +1588,17 @@ static void handle_watch(struct xenstore *xenstore, uint32_t id, char *payload,
 		/* Watch does not exist, create it */
 		k_mutex_unlock(&wel_mutex);
 
-		wentry = k_malloc(sizeof(*wentry));
+		wentry = xenlib_osal_memalloc(sizeof(*wentry));
 		if (!wentry) {
 			goto wentry_fail;
 		}
 
-		wentry->key = k_malloc(full_plen);
+		wentry->key = xenlib_osal_memalloc(full_plen);
 		if (!wentry->key) {
 			goto wkey_fail;
 		}
 
-		wentry->token = k_malloc(len - path_len);
+		wentry->token = xenlib_osal_memalloc(len - path_len);
 		if (!wentry->token) {
 			goto wtoken_fail;
 		}
@@ -1617,12 +1617,12 @@ static void handle_watch(struct xenstore *xenstore, uint32_t id, char *payload,
 
 	k_mutex_lock(&xsel_mutex, K_FOREVER);
 	if (key_to_entry_check_perm(path, domain->domid, XS_PERM_READ)) {
-		pentry = k_malloc(sizeof(*pentry));
+		pentry = xenlib_osal_memalloc(sizeof(*pentry));
 		if (!pentry) {
 			goto pentry_fail;
 		}
 
-		pentry->key = k_malloc(full_plen);
+		pentry->key = xenlib_osal_memalloc(full_plen);
 		if (!pentry->key) {
 			goto pkey_fail;
 		}
@@ -1639,7 +1639,7 @@ static void handle_watch(struct xenstore *xenstore, uint32_t id, char *payload,
 		k_sem_give(&domain->xenstore.xb_sem);
 	}
 	k_mutex_unlock(&xsel_mutex);
-	k_free(path);
+	xenlib_osal_memfree(path);
 
 	return;
 
@@ -1649,11 +1649,11 @@ path_fail:
 	return;
 
 wtoken_fail:
-	k_free(wentry->key);
+	xenlib_osal_memfree(wentry->key);
 wkey_fail:
-	k_free(wentry);
+	xenlib_osal_memfree(wentry);
 wentry_fail:
-	k_free(path);
+	xenlib_osal_memfree(path);
 	LOG_WRN("Failed to create watch for Domain#%d, no memory",
 		domain->domid);
 	send_errno(xenstore, id, ENOMEM);
@@ -1661,10 +1661,10 @@ wentry_fail:
 	return;
 
 pkey_fail:
-	k_free(pentry);
+	xenlib_osal_memfree(pentry);
 pentry_fail:
 	k_mutex_unlock(&xsel_mutex);
-	k_free(path);
+	xenlib_osal_memfree(path);
 	/*
 	 * We can't notify domain that this file already exists,
 	 * so leave it without first WATCH_EVENT
@@ -1693,7 +1693,7 @@ static void handle_unwatch(struct xenstore *xenstore, uint32_t id,
 	token = payload + path_len;
 	k_mutex_lock(&wel_mutex, K_FOREVER);
 	entry = key_to_watcher(path, true, token);
-	k_free(path);
+	xenlib_osal_memfree(path);
 	if (entry) {
 		if (entry->domain == domain) {
 			remove_watch_entry(entry);
@@ -1769,8 +1769,8 @@ static void cleanup_domain_watches(struct xen_domain *domain)
 					  pwe_next, node) {
 		if (pwe_iter->domain == domain) {
 			xenlib_osal_dlist_remove(&pwe_iter->node);
-			k_free(pwe_iter->key);
-			k_free(pwe_iter);
+			xenlib_osal_memfree(pwe_iter->key);
+			xenlib_osal_memfree(pwe_iter);
 		}
 	}
 	k_mutex_unlock(&pfl_mutex);
@@ -1815,8 +1815,8 @@ static void process_message(struct xenstore *xenstore)
 	message_handle_list[type].h(xenstore, header->req_id,
 				    payload, payload_size);
 
-	k_free(xenstore->in->buffer);
-	k_free(xenstore->in);
+	xenlib_osal_memfree(xenstore->in->buffer);
+	xenlib_osal_memfree(xenstore->in);
 	xenstore->in = NULL;
 }
 
@@ -1826,13 +1826,13 @@ static void handle_input(struct xenstore *xenstore)
 	struct xsd_sockmsg header;
 
 	if (!xenstore->in) {
-		xenstore->in = k_malloc(sizeof(*xenstore->in));
+		xenstore->in = xenlib_osal_memalloc(sizeof(*xenstore->in));
 		if (!xenstore->in) {
 			goto alloc_err;
 		}
 		memset(xenstore->in, 0, sizeof(*xenstore->in));
 		xenstore->in->total_size = sizeof(header);
-		xenstore->in->buffer = k_malloc(xenstore->in->total_size);
+		xenstore->in->buffer = xenlib_osal_memalloc(xenstore->in->total_size);
 		if (!xenstore->in->buffer) {
 			goto alloc_err;
 		}
@@ -1854,15 +1854,15 @@ static void handle_input(struct xenstore *xenstore)
 		if (header.len > XENSTORE_PAYLOAD_MAX) {
 			LOG_ERR("Failed to handle input: payload size is too big (%u max=%d)",
 				header.len, XENSTORE_PAYLOAD_MAX);
-			k_free(xenstore->in->buffer);
-			k_free(xenstore->in);
+			xenlib_osal_memfree(xenstore->in->buffer);
+			xenlib_osal_memfree(xenstore->in);
 			xenstore->in = NULL;
 			return;
 		}
 
 		xenstore->in->total_size += header.len;
-		k_free(xenstore->in->buffer);
-		xenstore->in->buffer = k_malloc(xenstore->in->total_size);
+		xenlib_osal_memfree(xenstore->in->buffer);
+		xenstore->in->buffer = xenlib_osal_memalloc(xenstore->in->total_size);
 		if (!xenstore->in->buffer) {
 			goto alloc_err;
 		}
@@ -2015,16 +2015,16 @@ static void free_buffered_data(struct xenstore *xenstore)
 	XENLIB_OSAL_SLIST_FOR_EACH_CONTAINER_SAFE(&xenstore->out_list, iter,
 			   next, node) {
 		xenlib_osal_slist_remove(&xenstore->out_list, NULL, &iter->node);
-		k_free(iter->buffer);
-		k_free(iter);
+		xenlib_osal_memfree(iter->buffer);
+		xenlib_osal_memfree(iter);
 		xenstore->used_out_bufs--;
 	}
 
 	if (xenstore->in) {
 		if (xenstore->in->buffer) {
-			k_free(xenstore->in->buffer);
+			xenlib_osal_memfree(xenstore->in->buffer);
 		}
-		k_free(xenstore->in);
+		xenlib_osal_memfree(xenstore->in);
 		xenstore->in = NULL;
 	}
 }
@@ -2047,7 +2047,7 @@ static void remove_ref_entries_recursive(uint32_t domid, xenlib_osal_dlist_t *ch
 					xenlib_osal_slist_remove(&entry->perms,
 							 prev_node,
 							 &iter_perm->node);
-					k_free(iter_perm);
+					xenlib_osal_memfree(iter_perm);
 				} else {
 					prev_node = &iter_perm->node;
 				}
@@ -2151,13 +2151,13 @@ ssize_t xs_read_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return rc;
 	}
 	entry = key_to_entry_check_perm(local_path, XENSTORE_LOCAL_DOMAIN_ID, XS_PERM_READ);
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return -ENOENT;
 	}
 
@@ -2168,7 +2168,7 @@ ssize_t xs_read_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
 	}
 
 	k_mutex_unlock(&xsel_mutex);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return value_len;
 }
@@ -2201,12 +2201,12 @@ int xs_write_timeout(const char *path, const char *value, uint32_t tx_id, k_time
 	rc = xss_do_write_deadline(local_path, value, XENSTORE_LOCAL_DOMAIN_ID,
 				   &perms, 1, deadline);
 	if (rc) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return rc;
 	}
 
 	rc = notify_watchers_deadline(local_path, XENSTORE_LOCAL_DOMAIN_ID, deadline);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return rc;
 }
@@ -2234,12 +2234,12 @@ int xs_rm_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
 
 	ret = xss_do_rm_deadline(local_path, XENSTORE_LOCAL_DOMAIN_ID, deadline);
 	if (ret) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return ret;
 	}
 
 	ret = notify_watchers_deadline(local_path, XENSTORE_LOCAL_DOMAIN_ID, deadline);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return ret;
 }
@@ -2271,13 +2271,13 @@ ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t t
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return rc;
 	}
 	entry = key_to_entry_check_perm(local_path, XENSTORE_LOCAL_DOMAIN_ID, XS_PERM_READ);
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return -ENOENT;
 	}
 
@@ -2301,7 +2301,7 @@ ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t t
 	}
 
 	k_mutex_unlock(&xsel_mutex);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return reply_sz;
 }
@@ -2334,13 +2334,13 @@ ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return rc;
 	}
 	entry = key_to_entry_check_perm(local_path, XENSTORE_LOCAL_DOMAIN_ID, XS_PERM_READ);
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return -ENOENT;
 	}
 
@@ -2354,7 +2354,7 @@ ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms
 	}
 
 	k_mutex_unlock(&xsel_mutex);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return total;
 }
@@ -2384,19 +2384,19 @@ int xs_set_permissions_timeout(const char *path, const struct xs_perm_entry *per
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return rc;
 	}
 	entry = key_to_entry_check_perm(local_path, XENSTORE_LOCAL_DOMAIN_ID, XS_PERM_NONE);
 	if (!entry) {
 		k_mutex_unlock(&xsel_mutex);
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return -ENOENT;
 	}
 
 	rc = set_perms_by_array(entry, perms, perms_num);
 	k_mutex_unlock(&xsel_mutex);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return rc;
 }
@@ -2429,12 +2429,12 @@ int xs_mkdir_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
 	ret = xss_do_write_deadline(local_path, "", XENSTORE_LOCAL_DOMAIN_ID,
 				    &perms, 1, deadline);
 	if (ret) {
-		k_free(local_path);
+		xenlib_osal_memfree(local_path);
 		return ret;
 	}
 
 	ret = notify_watchers_deadline(local_path, XENSTORE_LOCAL_DOMAIN_ID, deadline);
-	k_free(local_path);
+	xenlib_osal_memfree(local_path);
 
 	return ret;
 }

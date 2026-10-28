@@ -11,6 +11,7 @@
 #include <zephyr/logging/log.h>
 
 #include "domain.h"
+#include <xenlib_osal.h>
 
 LOG_MODULE_DECLARE(xen_dom_mgmt);
 
@@ -840,7 +841,7 @@ int gen_domain_fdt(struct xen_domain_cfg *domcfg, void **fdtaddr,
 			return -EINVAL;
 		}
 
-	fdt = k_aligned_alloc(XEN_PAGE_SIZE, fdt_size);
+	fdt = xenlib_osal_memalloc_aligned(XEN_PAGE_SIZE, fdt_size);
 	if (!fdt) {
 		LOG_ERR("Unable to allocate device-tree mem");
 		return -ENOMEM;
@@ -957,14 +958,14 @@ int gen_domain_fdt(struct xen_domain_cfg *domcfg, void **fdtaddr,
 
 	return 0;
  err:
-	k_free(fdt);
+	xenlib_osal_memfree(fdt);
 
 	return fdt_to_errno(rc);
 }
 
 void free_domain_fdt(void *fdt)
 {
-	k_free(fdt);
+	xenlib_osal_memfree(fdt);
 }
 #else /* CONFIG_XEN_LIBFDT */
 int gen_domain_fdt(struct xen_domain_cfg *domcfg, void **fdtaddr,

@@ -154,7 +154,7 @@ int vch_open(domid_t domain, const char *path, size_t min_rs, size_t min_ws,
 		return rc;
 	}
 
-	h->ring = k_aligned_alloc(XEN_PAGE_SIZE, XEN_PAGE_SIZE);
+	h->ring = xenlib_osal_memalloc_aligned(XEN_PAGE_SIZE, XEN_PAGE_SIZE);
 	if (!h->ring) {
 		return -ENOMEM;
 	}
@@ -230,7 +230,7 @@ free_evtch:
 		evtchn_close(h->evtch);
 	}
 	if (h->ring) {
-		k_free(h->ring);
+		xenlib_osal_memfree(h->ring);
 	}
 	memset(h, 0, sizeof(*h));
 	return rc;
@@ -358,7 +358,7 @@ void vch_close(struct vch_handle *h)
 	if (h->is_server) {
 		xss_rm(h->path);
 		gnttab_end_access(h->gref);
-		k_free(h->ring);
+		xenlib_osal_memfree(h->ring);
 	} else {
 		unmap.host_addr = xen_to_phys(h->ring);
 		unmap.handle = h->grant_handle; 

@@ -157,7 +157,8 @@ static int allocate_magic_pages(int domid)
 	 * This is not critical, so try to restore memory to dom0
 	 * and then return error code.
 	 */
-	rc = arch_dcache_flush_and_invd_range(mapped_magic, XEN_PAGE_SIZE * NR_MAGIC_PAGES);
+	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_magic,
+			   XEN_PAGE_SIZE * NR_MAGIC_PAGES);
 	if (rc) {
 		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
@@ -323,7 +324,8 @@ static int load_dtb(int domid, uint64_t dtb_addr, const char *dtb_start,
 	 * This is not critical, so try to restore memory to dom0
 	 * and then return error code.
 	 */
-	rc = arch_dcache_flush_and_invd_range(mapped_dtb_addr, XEN_PAGE_SIZE * nr_pages);
+	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_dtb_addr,
+			   XEN_PAGE_SIZE * nr_pages);
 	if (rc) {
 		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
@@ -435,7 +437,8 @@ static int probe_zimage(int domid, uint64_t base_addr,
 	 * This is not critical, so try to restore memory to dom0
 	 * and then return error code.
 	 */
-	rc = arch_dcache_flush_and_invd_range(mapped_image, XEN_PAGE_SIZE * nr_pages);
+	rc = xenlib_osal_dcache_flush_and_invd_range(mapped_image,
+			   XEN_PAGE_SIZE * nr_pages);
 	if (rc) {
 		LOG_ERR("Failed to flush memory for domid#%d (rc=%d)",
 			domid, rc);
@@ -495,11 +498,11 @@ static int probe_uimage(int domid, struct xen_domain_cfg *domcfg,
 	if (mem_size > GUEST_RAM0_SIZE)
 		mem_size = GUEST_RAM0_SIZE;
 
-	if (sys_be32_to_cpu(uhdr.magic_be32) != UIMAGE_MAGIC)
+	if (xenlib_osal_be32_to_cpu(uhdr.magic_be32) != UIMAGE_MAGIC)
 		return -EINVAL;
 
-	len = sys_be32_to_cpu(uhdr.size_be32);
-	base_addr = sys_be32_to_cpu(uhdr.load_be32);
+	len = xenlib_osal_be32_to_cpu(uhdr.size_be32);
+	base_addr = xenlib_osal_be32_to_cpu(uhdr.load_be32);
 	if (base_addr < GUEST_RAM0_BASE ||
 		base_addr > GUEST_RAM0_BASE + mem_size)
 		return -EINVAL;
@@ -649,7 +652,7 @@ void put_domain(struct xen_domain *domain)
 
 		xenlib_osal_dlist_remove(&domain->node);
 		--dom_num;
-		k_free(domain);
+		xenlib_osal_memfree(domain);
 	}
 	k_mutex_unlock(&dl_mutex);
 }
@@ -749,7 +752,7 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 		return rc;
 	}
 
-	domain = k_malloc(sizeof(*domain));
+	domain = xenlib_osal_memalloc(sizeof(*domain));
 	if (domain == NULL) {
 		LOG_ERR("Can not allocate memory for domain#%u struct", domid);
 		goto destroy_domain;
@@ -897,7 +900,7 @@ free_domain_stored:
 #endif
 	stop_domain_stored(domain);
 domain_free:
-	k_free(domain);
+	xenlib_osal_memfree(domain);
 destroy_domain:
 	xen_domctl_destroydomain(domid);
 
@@ -1039,7 +1042,7 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 	uint64_t value;
 	int rc;
 
-	domain = k_malloc(sizeof(*domain));
+	domain = xenlib_osal_memalloc(sizeof(*domain));
 	if (!domain) {
 		LOG_ERR("dom0less:domid:%u Can not allocate memory for domain", domid);
 		return -ENOMEM;
@@ -1112,7 +1115,7 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 err_free_stored:
 	stop_domain_stored(domain);
 err_free:
-	k_free(domain);
+	xenlib_osal_memfree(domain);
 	return rc;
 }
 
@@ -1157,7 +1160,7 @@ static int init_domain0(void)
 		return ret;
 	}
 
-	dom0 = k_malloc(sizeof(*dom0));
+	dom0 = xenlib_osal_memalloc(sizeof(*dom0));
 	if (!dom0) {
 		ret = -ENOMEM;
 		LOG_ERR("Can't allocate memory for dom0 domain struct");
@@ -1191,7 +1194,7 @@ static int init_domain0(void)
 #endif /* CONFIG_XEN_DOM0LESS_BOOT */
 
 out:
-	k_free(dom0);
+	xenlib_osal_memfree(dom0);
 
 	return ret;
 }

@@ -10,6 +10,7 @@
 #include <zephyr/logging/log.h>
 
 #include <mem-mgmt.h>
+#include <xenlib_osal.h>
 
 LOG_MODULE_DECLARE(xen_dom_mgmt);
 K_MUTEX_DEFINE(chunks_mutex);
@@ -139,7 +140,7 @@ static void *get_region_space(uint64_t nr_pages)
 	uint64_t nr_pfn_removed, populated_pfns, base_pfn;
 	void *mapped_addr;
 
-	mapped_addr = k_aligned_alloc(XEN_PAGE_SIZE, XEN_PAGE_SIZE * nr_pages);
+	mapped_addr = xenlib_osal_memalloc_aligned(XEN_PAGE_SIZE, XEN_PAGE_SIZE * nr_pages);
 	if (!mapped_addr) {
 		LOG_ERR("Failed to alloc memory for mapping");
 		return NULL;
@@ -169,7 +170,7 @@ pfn_remove_err:
 	}
 
 err_out:
-	k_free(mapped_addr);
+	xenlib_osal_memfree(mapped_addr);
 	return NULL;
 }
 
@@ -187,7 +188,7 @@ static int put_region_space(void *mapped_addr, uint64_t nr_pages)
 		return -EFAULT;
 	}
 
-	k_free(mapped_addr);
+	xenlib_osal_memfree(mapped_addr);
 	return 0;
 }
 #endif /* CONFIG_XEN_REGIONS */

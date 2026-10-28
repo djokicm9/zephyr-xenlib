@@ -228,7 +228,7 @@ static int xen_init_domain_console(struct xen_domain *domain)
 		return rc;
 	}
 
-	console->int_buf = k_malloc(XEN_CONSOLE_BUFFER_SZ);
+	console->int_buf = xenlib_osal_memalloc(XEN_CONSOLE_BUFFER_SZ);
 	if (!console->int_buf) {
 		LOG_ERR("Failed to allocate domain console buffer");
 		rc = -ENOMEM;
@@ -276,7 +276,7 @@ err_unbind:
 	evtchn_close(console->local_evtchn);
 
 err_free:
-	k_free(console->int_buf);
+	xenlib_osal_memfree(console->int_buf);
 
 unmap_ring:
 	xenmem_unmap_region(1, console->intf);
@@ -373,7 +373,7 @@ int xen_stop_domain_console(struct xen_domain *domain)
 		k_mutex_unlock(&global_console_lock);
 	}
 
-	k_free(console->int_buf);
+	xenlib_osal_memfree(console->int_buf);
 
 	unbind_event_channel(console->local_evtchn);
 
