@@ -631,7 +631,8 @@ void put_domain(struct xen_domain *domain)
 		XENLIB_OSAL_LOG_ERR("Domain is NULL");
 		return;
 	}
-	__ASSERT(!domain->f_dom0less, "dom0less domain#%u operation not supported", domain->domid);
+	XENLIB_OSAL_ASSERT(!domain->f_dom0less, "dom0less domain#%u operation not "
+		"supported", domain->domid);
 
 	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	domain->refcount--;
@@ -1049,7 +1050,7 @@ static int dom0less_get_next_domain(uint32_t domid_start, struct xen_domctl_getd
 {
 	int i, rc;
 
-	__ASSERT_NO_MSG(info);
+	XENLIB_OSAL_ASSERT_NO_MSG(info);
 
 	for (i = domid_start; i < CONFIG_DOMU_MAX; i++) {
 		rc = xen_domctl_getdomaininfo(i, info);

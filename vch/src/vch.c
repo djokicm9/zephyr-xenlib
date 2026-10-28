@@ -38,7 +38,7 @@
 
 static void _vch_wait(struct vch_handle *h)
 {
-	__ASSERT(h, "Invalid handle");
+	XENLIB_OSAL_ASSERT(h, "Invalid handle");
 	xenlib_osal_semaphore_wait(&h->sem, XENLIB_OSAL_WAIT_FOREVER);
 }
 
@@ -46,7 +46,7 @@ static void _vch_notify_cb(void *data)
 {
 	struct vch_handle *h = data;
 
-	__ASSERT(h, "Invalid handle");
+	XENLIB_OSAL_ASSERT(h, "Invalid handle");
 	xenlib_osal_semaphore_signal(&h->sem);
 }
 
@@ -85,7 +85,7 @@ static void _vch_unmask_notify(struct vch_handle *h, int bit)
 {
 	uint8_t *target;
 
-	__ASSERT(h && h->ring, "Invalid handler");
+	XENLIB_OSAL_ASSERT(h && h->ring, "Invalid handler");
 
 	if (h->is_server) {
 		target = &h->ring->cli_notify;

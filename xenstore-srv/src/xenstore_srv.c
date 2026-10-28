@@ -86,7 +86,7 @@ static XENLIB_OSAL_THREAD_STACK_ARRAY_DEFINE(xenstore_thrd_stack,
 
 static uint32_t used_threads;
 static XENLIB_OSAL_MUTEX_DEFINE(xs_stack_lock);
-BUILD_ASSERT(sizeof(used_threads) * CHAR_BIT >= CONFIG_DOMU_MAX);
+XENLIB_OSAL_BUILD_ASSERT(sizeof(used_threads) * CHAR_BIT >= CONFIG_DOMU_MAX);
 
 static XENLIB_OSAL_MUTEX_DEFINE(xsel_mutex);
 static XENLIB_OSAL_MUTEX_DEFINE(pfl_mutex);
@@ -201,10 +201,10 @@ static int get_stack_idx(void)
 
 	ret = find_lsb_set(~used_threads) - 1;
 
-	/* This might fail only if BUILD_ASSERT above fails also, but
+	/* This might fail only if XENLIB_OSAL_BUILD_ASSERT above fails also, but
 	 * better to be safe than sorry.
 	 */
-	__ASSERT_NO_MSG(ret >= 0);
+	XENLIB_OSAL_ASSERT_NO_MSG(ret >= 0);
 	used_threads |= BIT(ret);
 	XENLIB_OSAL_LOG_DBG("Allocated stack with index %d", ret);
 
@@ -216,11 +216,11 @@ static int get_stack_idx(void)
 /* Free allocated stack */
 static void free_stack_idx(int idx)
 {
-	__ASSERT_NO_MSG(idx < CONFIG_DOMU_MAX);
+	XENLIB_OSAL_ASSERT_NO_MSG(idx < CONFIG_DOMU_MAX);
 
 	xenlib_osal_mutex_lock(&xs_stack_lock, XENLIB_OSAL_WAIT_FOREVER);
 
-	__ASSERT_NO_MSG(used_threads & BIT(idx));
+	XENLIB_OSAL_ASSERT_NO_MSG(used_threads & BIT(idx));
 	used_threads &= ~BIT(idx);
 
 	xenlib_osal_mutex_unlock(&xs_stack_lock);
@@ -431,7 +431,7 @@ static void handle_output(struct xenstore *xenstore)
 	 * This probably won't ever happen, but further code changes
 	 * can break something. So it's better to be safe than sorry.
 	 */
-	__ASSERT_NO_MSG(out->used == out->total_size);
+	XENLIB_OSAL_ASSERT_NO_MSG(out->used == out->total_size);
 	xenlib_osal_slist_remove(&xenstore->out_list, NULL, &out->node);
 	xenlib_osal_memfree(out->buffer);
 	xenlib_osal_memfree(out);
@@ -604,7 +604,7 @@ static int fire_watcher(struct xen_domain *domain, char *pending_path)
 
 	loc_len = snprintf(local, sizeof(local), "/local/domain/%d/",
 			   domain->domid);
-	__ASSERT_NO_MSG(loc_len < sizeof(local));
+	XENLIB_OSAL_ASSERT_NO_MSG(loc_len < sizeof(local));
 
 	/* Check permissions */
 	if (!key_to_entry_check_perm(local, domain->domid, XS_PERM_READ)) {
@@ -1956,7 +1956,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 	int rc = 0, err_ret;
 	struct xenstore *xenstore;
 
-	__ASSERT_NO_MSG(domain);
+	XENLIB_OSAL_ASSERT_NO_MSG(domain);
 
 	xenstore = &domain->xenstore;
 	xenstore->domain = domain;

@@ -53,8 +53,8 @@ static XENLIB_OSAL_MUTEX_DEFINE(global_console_lock);
 /* There we store pointer to an attached console */
 static struct xen_domain_console *current_console;
 
-BUILD_ASSERT(sizeof(used_threads) * CHAR_BIT >= CONFIG_DOMU_MAX);
-BUILD_ASSERT(XEN_CONSOLE_BUFFER_SZ &&
+XENLIB_OSAL_BUILD_ASSERT(sizeof(used_threads) * CHAR_BIT >= CONFIG_DOMU_MAX);
+XENLIB_OSAL_BUILD_ASSERT(XEN_CONSOLE_BUFFER_SZ &&
 	     (XEN_CONSOLE_BUFFER_SZ & (XEN_CONSOLE_BUFFER_SZ - 1)) == 0);
 
 /* Allocate one stack for external reader thread */
@@ -66,10 +66,10 @@ static int get_stack_idx(void)
 
 	ret = find_lsb_set(~used_threads) - 1;
 
-	/* This might fail only if BUILD_ASSERT above fails also, but
+	/* This might fail only if XENLIB_OSAL_BUILD_ASSERT above fails also, but
 	 * better to be safe than sorry.
 	 */
-	__ASSERT_NO_MSG(ret >= 0);
+	XENLIB_OSAL_ASSERT_NO_MSG(ret >= 0);
 	used_threads |= BIT(ret);
 	XENLIB_OSAL_LOG_DBG("Allocated stack with index %d", ret);
 
@@ -81,11 +81,11 @@ static int get_stack_idx(void)
 /* Free allocated stack */
 static void free_stack_idx(int idx)
 {
-	__ASSERT_NO_MSG(idx < CONFIG_DOMU_MAX);
+	XENLIB_OSAL_ASSERT_NO_MSG(idx < CONFIG_DOMU_MAX);
 
 	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 
-	__ASSERT_NO_MSG(used_threads & BIT(idx));
+	XENLIB_OSAL_ASSERT_NO_MSG(used_threads & BIT(idx));
 	used_threads &= ~BIT(idx);
 
 	xenlib_osal_mutex_unlock(&global_console_lock);
