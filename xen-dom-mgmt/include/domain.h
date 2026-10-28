@@ -189,11 +189,11 @@ struct xen_domain_cfg {
 
 struct xen_domain_console {
 	struct xencons_interface *intf;
-	struct k_mutex lock;
+	xenlib_osal_mutex_t lock;
 	struct k_thread ext_thrd;
 	struct k_thread int_thrd;
-	struct k_sem ext_sem;
-	struct k_sem int_sem;
+	xenlib_osal_semaphore_t ext_sem;
+	xenlib_osal_semaphore_t int_sem;
 	k_tid_t ext_tid;
 	xenlib_osal_atomic_t stop_thrd;
 	evtchn_port_t evtchn;

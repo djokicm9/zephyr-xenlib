@@ -49,7 +49,7 @@ static K_THREAD_STACK_DEFINE(display_thrd_stack, XEN_CONSOLE_STACK_SIZE);
 #endif /* CONFIG_XEN_SHELL */
 
 static uint32_t used_threads;
-static K_MUTEX_DEFINE(global_console_lock);
+static XENLIB_OSAL_MUTEX_DEFINE(global_console_lock);
 /* There we store pointer to an attached console */
 static struct xen_domain_console *current_console;
 
@@ -62,7 +62,7 @@ static int get_stack_idx(void)
 {
 	int ret;
 
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 
 	ret = find_lsb_set(~used_threads) - 1;
 
@@ -73,7 +73,7 @@ static int get_stack_idx(void)
 	used_threads |= BIT(ret);
 	LOG_DBG("Allocated stack with index %d", ret);
 
-	k_mutex_unlock(&global_console_lock);
+	xenlib_osal_mutex_unlock(&global_console_lock);
 
 	return ret;
 }
@@ -83,12 +83,12 @@ static void free_stack_idx(int idx)
 {
 	__ASSERT_NO_MSG(idx < CONFIG_DOMU_MAX);
 
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 
 	__ASSERT_NO_MSG(used_threads & BIT(idx));
 	used_threads &= ~BIT(idx);
 
-	k_mutex_unlock(&global_console_lock);
+	xenlib_osal_mutex_unlock(&global_console_lock);
 }
 
 /* Write one character to the internal console ring.
@@ -191,17 +191,17 @@ static void console_read_thrd(void *con, void *p2, void *p3)
 
 	while (!xenlib_osal_atomic_test_and_clear_bit(&console->stop_thrd,
 					  EXT_THREAD_STOP_BIT)) {
-		k_sem_take(&console->ext_sem, K_FOREVER);
+		xenlib_osal_semaphore_wait(&console->ext_sem, XENLIB_OSAL_WAIT_FOREVER);
 		/* Need to call read_from_ext_ring() till there are no
 		 * data to read, because there can be race between us
 		 * and writer in DomU
 		 */
-		k_mutex_lock(&console->lock, K_FOREVER);
+		xenlib_osal_mutex_lock(&console->lock, XENLIB_OSAL_WAIT_FOREVER);
 		while (read_from_ext_ring(console->intf, console))
 			;
-		k_mutex_unlock(&console->lock);
+		xenlib_osal_mutex_unlock(&console->lock);
 		/* Notify display thread (if any) */
-		k_sem_give(&console->int_sem);
+		xenlib_osal_semaphore_signal(&console->int_sem);
 	}
 }
 
@@ -209,7 +209,7 @@ static void evtchn_callback(void *priv)
 {
 	struct xen_domain_console *console = priv;
 
-	k_sem_give(&console->ext_sem);
+	xenlib_osal_semaphore_signal(&console->ext_sem);
 }
 
 static int xen_init_domain_console(struct xen_domain *domain)
@@ -255,9 +255,9 @@ static int xen_init_domain_console(struct xen_domain *domain)
 
 	console->local_evtchn = rc;
 
-	k_sem_init(&console->ext_sem, 1, 1);
-	k_sem_init(&console->int_sem, 1, 1);
-	k_mutex_init(&console->lock);
+	xenlib_osal_semaphore_init(&console->ext_sem, 1, 1);
+	xenlib_osal_semaphore_init(&console->int_sem, 1, 1);
+	xenlib_osal_mutex_init(&console->lock);
 
 	LOG_DBG("%s: bind evtchn %u as %u\n", __func__, console->evtchn,
 	       console->local_evtchn);
@@ -312,7 +312,7 @@ int xen_start_domain_console(struct xen_domain *domain)
 	}
 
 	console->stack_idx = get_stack_idx();
-	k_sem_init(&console->ext_sem, 1, 1);
+	xenlib_osal_semaphore_init(&console->ext_sem, 1, 1);
 	xenlib_osal_atomic_clear_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
 
 	console->ext_tid =
@@ -320,7 +320,7 @@ int xen_start_domain_console(struct xen_domain *domain)
 				read_thrd_stack[console->stack_idx],
 				XEN_CONSOLE_STACK_SIZE,
 				console_read_thrd, console,
-				NULL, NULL, XEN_CONSOLE_PRIO, 0, K_NO_WAIT);
+				NULL, NULL, XEN_CONSOLE_PRIO, 0, XENLIB_OSAL_NO_WAIT);
 
 	if (IS_ENABLED(CONFIG_THREAD_NAME)) {
 		char name[CONFIG_THREAD_MAX_NAME_LEN];
@@ -358,19 +358,19 @@ int xen_stop_domain_console(struct xen_domain *domain)
 	xenlib_osal_atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 
 	/* Send event to end read cycle */
-	k_sem_give(&console->ext_sem);
-	k_thread_join(&console->ext_thrd, K_FOREVER);
+	xenlib_osal_semaphore_signal(&console->ext_sem);
+	k_thread_join(&console->ext_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	console->ext_tid = NULL;
 	free_stack_idx(console->stack_idx);
 
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 	/* Stop attached console if any */
 	if (current_console == console) {
-		k_sem_give(&console->int_sem);
-		k_mutex_unlock(&global_console_lock);
-		k_thread_join(&console->int_thrd, K_FOREVER);
+		xenlib_osal_semaphore_signal(&console->int_sem);
+		xenlib_osal_mutex_unlock(&global_console_lock);
+		k_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	} else {
-		k_mutex_unlock(&global_console_lock);
+		xenlib_osal_mutex_unlock(&global_console_lock);
 	}
 
 	xenlib_osal_memfree(console->int_buf);
@@ -408,9 +408,9 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 
 	while (!xenlib_osal_atomic_test_and_clear_bit(&console->stop_thrd,
 					  INT_THREAD_STOP_BIT)) {
-		k_sem_take(&console->int_sem, K_FOREVER);
+		xenlib_osal_semaphore_wait(&console->int_sem, XENLIB_OSAL_WAIT_FOREVER);
 
-		k_mutex_lock(&console->lock, K_FOREVER);
+		xenlib_osal_mutex_lock(&console->lock, XENLIB_OSAL_WAIT_FOREVER);
 		/* Display info about missed characters */
 		if (console->lost_chars) {
 			shell_warn(shell,
@@ -439,12 +439,12 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 						&console->int_buf[buf_pos]);
 			console->int_cons += size;
 		}
-		k_mutex_unlock(&console->lock);
+		xenlib_osal_mutex_unlock(&console->lock);
 	}
 
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 	current_console = NULL;
-	k_mutex_unlock(&global_console_lock);
+	xenlib_osal_mutex_unlock(&global_console_lock);
 
 	shell_info(shell, "Detached from console");
 }
@@ -456,9 +456,9 @@ static void console_shell_cb(const struct shell *shell,
 
 	ARG_UNUSED(user_data);
 
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 	console = current_console;
-	k_mutex_unlock(&global_console_lock);
+	xenlib_osal_mutex_unlock(&global_console_lock);
 
 	if (!console) {
 		/* This may happen if xen_stop_domain_console() was
@@ -470,7 +470,7 @@ static void console_shell_cb(const struct shell *shell,
 	if (len == 1 && data[0] == ESCAPE_CHARACTER) {
 		/* Detach console */
 		xenlib_osal_atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
-		k_sem_give(&console->int_sem);
+		xenlib_osal_semaphore_signal(&console->int_sem);
 		shell_set_bypass(shell, NULL, NULL);
 		return;
 	}
@@ -495,19 +495,19 @@ int xen_attach_domain_console(const struct shell *shell,
 	}
 
 	console = &domain->console;
-	k_mutex_lock(&global_console_lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&global_console_lock, XENLIB_OSAL_WAIT_FOREVER);
 	if (current_console) {
 		/* Actually, this should never happen */
 		shell_error(shell, "Shell is already attached to console");
-		k_mutex_unlock(&global_console_lock);
+		xenlib_osal_mutex_unlock(&global_console_lock);
 		put_domain(domain);
 		return -EEXIST;
 	}
 	current_console = console;
-	k_mutex_unlock(&global_console_lock);
+	xenlib_osal_mutex_unlock(&global_console_lock);
 
 	if (!console->first_attach) {
-		k_thread_join(&console->int_thrd, K_FOREVER);
+		k_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	}
 
 	console->first_attach = false;
@@ -517,7 +517,7 @@ int xen_attach_domain_console(const struct shell *shell,
 			display_thrd_stack,
 			XEN_CONSOLE_STACK_SIZE,
 			console_display_thrd, console,
-			(void *)shell, NULL, XEN_CONSOLE_PRIO, 0, K_NO_WAIT);
+			(void *)shell, NULL, XEN_CONSOLE_PRIO, 0, XENLIB_OSAL_NO_WAIT);
 
 	if (IS_ENABLED(CONFIG_THREAD_NAME)) {
 		char name[CONFIG_THREAD_MAX_NAME_LEN];
@@ -545,12 +545,12 @@ int set_console_feed_cb(struct xen_domain *domain, on_console_feed_cb_t cb, void
 
 	console = &domain->console;
 
-	k_mutex_lock(&console->lock, K_FOREVER);
+	xenlib_osal_mutex_lock(&console->lock, XENLIB_OSAL_WAIT_FOREVER);
 
 	console->on_feed_cb = cb;
 	console->on_feed_cb_data = cb_data;
 
-	k_mutex_unlock(&console->lock);
+	xenlib_osal_mutex_unlock(&console->lock);
 
 	return 0;
 }

@@ -32,7 +32,7 @@ struct xenstore {
 	int used_out_bufs;
 	struct xenstore_domain_interface *domint;
 	struct xen_domain *domain;
-	struct k_sem xb_sem;
+	xenlib_osal_semaphore_t xb_sem;
 	struct k_thread thrd;
 	xenlib_osal_atomic_t thrd_stop;
 	evtchn_port_t remote_evtchn;

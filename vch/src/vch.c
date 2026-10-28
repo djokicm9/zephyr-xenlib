@@ -39,7 +39,7 @@
 static void _vch_wait(struct vch_handle *h)
 {
 	__ASSERT(h, "Invalid handle");
-	k_sem_take(&h->sem, K_FOREVER);
+	xenlib_osal_semaphore_wait(&h->sem, XENLIB_OSAL_WAIT_FOREVER);
 }
 
 static void _vch_notify_cb(void *data)
@@ -47,7 +47,7 @@ static void _vch_notify_cb(void *data)
 	struct vch_handle *h = data;
 
 	__ASSERT(h, "Invalid handle");
-	k_sem_give(&h->sem);
+	xenlib_osal_semaphore_signal(&h->sem);
 }
 
 static int _vch_notify(struct vch_handle *h, int rw)
@@ -149,7 +149,7 @@ int vch_open(domid_t domain, const char *path, size_t min_rs, size_t min_ws,
 		return -EINVAL;
 	}
 
-	rc = k_sem_init(&h->sem, 1, 1);
+	rc = xenlib_osal_semaphore_init(&h->sem, 1, 1);
 	if (rc) {
 		return rc;
 	}
@@ -256,7 +256,7 @@ int vch_connect(domid_t domain, const char *path, struct vch_handle *h)
 	memset(h, 0, sizeof(*h));
 	h->is_server = false;
 	strncpy(h->path, path, MIN(sizeof(h->path) - 1, strlen(path)));
-	rc = k_sem_init(&h->sem, 1, 1);
+	rc = xenlib_osal_semaphore_init(&h->sem, 1, 1);
 	if (rc) {
 		return rc;
 	}
@@ -353,7 +353,7 @@ void vch_close(struct vch_handle *h)
 	notify_evtchn(h->evtch);
 	unbind_event_channel(h->evtch);
 	evtchn_close(h->evtch);
-	k_sem_give(&h->sem);
+	xenlib_osal_semaphore_signal(&h->sem);
 
 	if (h->is_server) {
 		xss_rm(h->path);

@@ -53,8 +53,8 @@ static int dom_num = 0;
 #endif
 
 static xenlib_osal_dlist_t domain_list = XENLIB_OSAL_DLIST_STATIC_INIT(&domain_list);
-K_MUTEX_DEFINE(dl_mutex);
-K_MUTEX_DEFINE(create_mutex);
+XENLIB_OSAL_MUTEX_DEFINE(dl_mutex);
+XENLIB_OSAL_MUTEX_DEFINE(create_mutex);
 
 static void arch_prepare_domain_cfg(struct xen_domain_cfg *dom_cfg,
 				    struct xen_arch_domainconfig *arch_cfg)
@@ -601,14 +601,14 @@ struct xen_domain *get_domain(uint32_t domid)
 {
 	struct xen_domain *iter;
 
-	k_mutex_lock(&dl_mutex, K_FOREVER);
+	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	XENLIB_OSAL_DLIST_FOR_EACH_CONTAINER (&domain_list, iter, node) {
 		if (iter->domid == domid) {
 			iter->refcount++;
 			break;
 		}
 	}
-	k_mutex_unlock(&dl_mutex);
+	xenlib_osal_mutex_unlock(&dl_mutex);
 	return iter;
 }
 
@@ -622,7 +622,7 @@ void put_domain(struct xen_domain *domain)
 	}
 	__ASSERT(!domain->f_dom0less, "dom0less domain#%u operation not supported", domain->domid);
 
-	k_mutex_lock(&dl_mutex, K_FOREVER);
+	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	domain->refcount--;
 	if (domain->refcount == 0) {
 		rc = xs_remove_xenstore_backends(domain);
@@ -654,7 +654,7 @@ void put_domain(struct xen_domain *domain)
 		--dom_num;
 		xenlib_osal_memfree(domain);
 	}
-	k_mutex_unlock(&dl_mutex);
+	xenlib_osal_mutex_unlock(&dl_mutex);
 }
 
 struct xen_domain_cfg *domain_find_config(const char *name)
@@ -857,16 +857,16 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 	}
 #endif
 
-	k_mutex_lock(&create_mutex, K_FOREVER);
+	xenlib_osal_mutex_lock(&create_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	if (find_domain_by_name(name) != 0) {
 		rc = -EEXIST;
 		LOG_ERR("Domain with name %s already exists", name);
-		k_mutex_unlock(&create_mutex);
+		xenlib_osal_mutex_unlock(&create_mutex);
 		goto stop_domain_console;
 	}
 
 	rc = xs_initialize_xenstore(domid, domain);
-	k_mutex_unlock(&create_mutex);
+	xenlib_osal_mutex_unlock(&create_mutex);
 
 	if (rc) {
 		goto stop_domain_console;
@@ -880,12 +880,12 @@ int domain_create(struct xen_domain_cfg *domcfg, uint32_t domid)
 		}
 	}
 
-	k_mutex_lock(&dl_mutex, K_FOREVER);
+	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	domain->refcount = 1;
 	xenlib_osal_dnode_init(&domain->node);
 	xenlib_osal_dlist_append(&domain_list, &domain->node);
 	++dom_num;
-	k_mutex_unlock(&dl_mutex);
+	xenlib_osal_mutex_unlock(&dl_mutex);
 
 	if (rc) {
 		return rc;
@@ -1103,11 +1103,11 @@ static int dom0less_init_domain(uint32_t domid, struct xen_domctl_getdomaininfo 
 
 	LOG_DBG("dom0less:domid:%u attached", domid);
 
-	k_mutex_lock(&dl_mutex, K_FOREVER);
+	xenlib_osal_mutex_lock(&dl_mutex, XENLIB_OSAL_WAIT_FOREVER);
 	xenlib_osal_dnode_init(&domain->node);
 	xenlib_osal_dlist_append(&domain_list, &domain->node);
 	++dom_num;
-	k_mutex_unlock(&dl_mutex);
+	xenlib_osal_mutex_unlock(&dl_mutex);
 
 	/* TODO: console ? */
 	return 0;
