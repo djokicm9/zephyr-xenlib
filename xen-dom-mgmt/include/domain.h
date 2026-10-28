@@ -11,6 +11,7 @@
 #include <zephyr/xen/events.h>
 #include <zephyr/xen/generic.h>
 #include <xenstore_srv.h>
+#include <xenlib_osal.h>
 
 #define NR_MAGIC_PAGES 4
 #define CONSOLE_PFN_OFFSET 0
@@ -194,7 +195,7 @@ struct xen_domain_console {
 	struct k_sem ext_sem;
 	struct k_sem int_sem;
 	k_tid_t ext_tid;
-	atomic_t stop_thrd;
+	xenlib_osal_atomic_t stop_thrd;
 	evtchn_port_t evtchn;
 	evtchn_port_t local_evtchn;
 	int stack_idx;

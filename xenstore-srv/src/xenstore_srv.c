@@ -28,6 +28,7 @@
 #include "xen/public/io/xs_wire.h"
 #include "xenstore_srv.h"
 #include "xss.h"
+#include <xenlib_osal.h>
 
 LOG_MODULE_REGISTER(xenstore);
 
@@ -1899,7 +1900,7 @@ static void xenstore_evt_thrd(void *p1, void *p2, void *p3)
 	xenstore->stop_transaction_id = 0;
 	xenstore->pending_stop_transaction = false;
 
-	while (!atomic_get(&xenstore->thrd_stop)) {
+	while (!xenlib_osal_atomic_get(&xenstore->thrd_stop)) {
 		if (xenstore->pending_stop_transaction) {
 			send_reply(xenstore,
 				   xenstore->stop_transaction_id,
@@ -1942,7 +1943,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 	sys_slist_init(&xenstore->out_list);
 	xenstore->used_out_bufs = 0;
 	k_sem_init(&xenstore->xb_sem, 0, 1);
-	atomic_clear(&xenstore->thrd_stop);
+	xenlib_osal_atomic_clear(&xenstore->thrd_stop);
 
 	rc = xenmem_map_region(domain->domid, 1, store_pfn, (void **)&xenstore->domint);
 	if (rc < 0) {
@@ -2073,7 +2074,7 @@ int stop_domain_stored(struct xen_domain *domain)
 	xenstore = &domain->xenstore;
 
 	LOG_DBG("Destroy domain#%u", domain->domid);
-	atomic_set(&xenstore->thrd_stop, 1);
+	xenlib_osal_atomic_set(&xenstore->thrd_stop, 1);
 	k_sem_give(&xenstore->xb_sem);
 	k_thread_join(&xenstore->thrd, K_FOREVER);
 	free_stack_idx(xenstore->xs_stack_slot);

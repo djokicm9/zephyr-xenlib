@@ -8,6 +8,7 @@
 #define XENLIB_XENSTORE_SRV_H
 
 #include "xen/public/io/xs_wire.h"
+#include <xenlib_osal.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,7 +34,7 @@ struct xenstore {
 	struct xen_domain *domain;
 	struct k_sem xb_sem;
 	struct k_thread thrd;
-	atomic_t thrd_stop;
+	xenlib_osal_atomic_t thrd_stop;
 	evtchn_port_t remote_evtchn;
 	evtchn_port_t local_evtchn;
 	size_t xs_stack_slot;

@@ -26,6 +26,7 @@
 #include "xenstore_srv.h"
 #include <xen_console.h>
 #include <mem-mgmt.h>
+#include <xenlib_osal.h>
 
 LOG_MODULE_REGISTER(xen_domain_console);
 
@@ -188,7 +189,7 @@ static void console_read_thrd(void *con, void *p2, void *p3)
 	ARG_UNUSED(p3);
 	struct xen_domain_console *console = con;
 
-	while (!atomic_test_and_clear_bit(&console->stop_thrd,
+	while (!xenlib_osal_atomic_test_and_clear_bit(&console->stop_thrd,
 					  EXT_THREAD_STOP_BIT)) {
 		k_sem_take(&console->ext_sem, K_FOREVER);
 		/* Need to call read_from_ext_ring() till there are no
@@ -312,7 +313,7 @@ int xen_start_domain_console(struct xen_domain *domain)
 
 	console->stack_idx = get_stack_idx();
 	k_sem_init(&console->ext_sem, 1, 1);
-	atomic_clear_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
+	xenlib_osal_atomic_clear_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
 
 	console->ext_tid =
 		k_thread_create(&console->ext_thrd,
@@ -353,8 +354,8 @@ int xen_stop_domain_console(struct xen_domain *domain)
 		return -ESRCH;
 	}
 
-	atomic_set_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
-	atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
+	xenlib_osal_atomic_set_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
+	xenlib_osal_atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 
 	/* Send event to end read cycle */
 	k_sem_give(&console->ext_sem);
@@ -405,7 +406,7 @@ static void console_display_thrd(void *p1, void *p2, void *p3)
 
 	shell_info(shell, "Attached to a domain console");
 
-	while (!atomic_test_and_clear_bit(&console->stop_thrd,
+	while (!xenlib_osal_atomic_test_and_clear_bit(&console->stop_thrd,
 					  INT_THREAD_STOP_BIT)) {
 		k_sem_take(&console->int_sem, K_FOREVER);
 
@@ -468,7 +469,7 @@ static void console_shell_cb(const struct shell *shell,
 
 	if (len == 1 && data[0] == ESCAPE_CHARACTER) {
 		/* Detach console */
-		atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
+		xenlib_osal_atomic_set_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 		k_sem_give(&console->int_sem);
 		shell_set_bypass(shell, NULL, NULL);
 		return;
@@ -510,7 +511,7 @@ int xen_attach_domain_console(const struct shell *shell,
 	}
 
 	console->first_attach = false;
-	atomic_clear_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
+	xenlib_osal_atomic_clear_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 
 	k_thread_create(&console->int_thrd,
 			display_thrd_stack,
