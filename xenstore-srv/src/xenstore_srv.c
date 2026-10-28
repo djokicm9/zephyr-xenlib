@@ -147,16 +147,16 @@ static int xenstore_path_validate(const char *path)
 }
 
 static int xss_mutex_lock_deadline(xenlib_osal_mutex_t *mutex,
-		   k_timepoint_t deadline)
+		   xenlib_osal_timepoint_t deadline)
 {
 	int rc;
 
-	rc = xenlib_osal_mutex_lock(mutex, sys_timepoint_timeout(deadline));
+	rc = xenlib_osal_mutex_lock(mutex, xenlib_osal_timepoint_timeout(deadline));
 	if (!rc) {
 		return 0;
 	}
 
-	if ((rc == -EAGAIN) || sys_timepoint_expired(deadline)) {
+	if ((rc == -EAGAIN) || xenlib_osal_timepoint_expired(deadline)) {
 		return -ETIMEDOUT;
 	}
 
@@ -819,7 +819,7 @@ ret_err:
 
 static int xss_do_write_deadline(const char *const_path, const char *data, uint32_t domid,
 				 const struct xs_perm_entry *perms, size_t perms_num,
-				 k_timepoint_t deadline)
+				 xenlib_osal_timepoint_t deadline)
 {
 	int rc = 0;
 	struct xs_entry *iter = NULL, *insert_entry = NULL, *parent_entry = NULL;
@@ -935,14 +935,14 @@ free_allocated:
 }
 
 static int xss_do_write(const char *const_path, const char *data, uint32_t domid,
-			const struct xs_perm_entry *perms, size_t perms_num, k_timeout_t tout)
+			const struct xs_perm_entry *perms, size_t perms_num, xenlib_osal_timeout_t tout)
 {
 	return xss_do_write_deadline(const_path, data, domid, perms, perms_num,
-				     sys_timepoint_calc(tout));
+				     xenlib_osal_timepoint_calc(tout));
 }
 
 static int notify_watchers_deadline(const char *path, uint32_t caller_domid,
-				    k_timepoint_t deadline)
+				    xenlib_osal_timepoint_t deadline)
 {
 	struct watch_entry *iter;
 	struct pending_watch_event_entry *pentry;
@@ -998,7 +998,7 @@ pentry_fail:
 static void notify_watchers(const char *path, uint32_t caller_domid)
 {
 	(void)notify_watchers_deadline(path, caller_domid,
-			   sys_timepoint_calc(XENLIB_OSAL_WAIT_FOREVER));
+			   xenlib_osal_timepoint_calc(XENLIB_OSAL_WAIT_FOREVER));
 }
 
 int xss_write(const char *path, const char *value)
@@ -1509,7 +1509,8 @@ static void handle_read(struct xenstore *xenstore, uint32_t id, char *payload,
 	xenlib_osal_mutex_unlock(&xsel_mutex);
 }
 
-static int xss_do_rm_deadline(const char *key, uint32_t caller_id, k_timepoint_t deadline)
+static int xss_do_rm_deadline(const char *key, uint32_t caller_id,
+			   xenlib_osal_timepoint_t deadline)
 {
 	struct xs_entry *entry;
 	int rc;
@@ -1530,9 +1531,10 @@ static int xss_do_rm_deadline(const char *key, uint32_t caller_id, k_timepoint_t
 	return 0;
 }
 
-static int xss_do_rm(const char *key, uint32_t caller_id, k_timeout_t tout)
+static int xss_do_rm(const char *key, uint32_t caller_id,
+			   xenlib_osal_timeout_t tout)
 {
-	return xss_do_rm_deadline(key, caller_id, sys_timepoint_calc(tout));
+	return xss_do_rm_deadline(key, caller_id, xenlib_osal_timepoint_calc(tout));
 }
 
 int xss_rm(const char *path)
@@ -2133,13 +2135,13 @@ int xs_init(void)
 }
 
 ssize_t xs_read_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
-			k_timeout_t tout)
+			xenlib_osal_timeout_t tout)
 {
 	char *local_path;
 	const char *value;
 	size_t value_len;
 	struct xs_entry *entry;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int rc;
 
 	if (!path || (len > 0 && !buf)) {
@@ -2155,7 +2157,7 @@ ssize_t xs_read_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
 		return rc;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
@@ -2181,14 +2183,15 @@ ssize_t xs_read_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
 	return value_len;
 }
 
-int xs_write_timeout(const char *path, const char *value, uint32_t tx_id, k_timeout_t tout)
+int xs_write_timeout(const char *path, const char *value, uint32_t tx_id,
+			   xenlib_osal_timeout_t tout)
 {
 	struct xs_perm_entry perms = {
 		.domid = XENSTORE_LOCAL_DOMAIN_ID,
 		.perm = XS_PERM_NONE,
 	};
 	char *local_path;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int rc;
 
 	if (!path || !value) {
@@ -2204,7 +2207,7 @@ int xs_write_timeout(const char *path, const char *value, uint32_t tx_id, k_time
 		return rc;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	rc = xss_do_write_deadline(local_path, value, XENSTORE_LOCAL_DOMAIN_ID,
 				   &perms, 1, deadline);
@@ -2219,10 +2222,10 @@ int xs_write_timeout(const char *path, const char *value, uint32_t tx_id, k_time
 	return rc;
 }
 
-int xs_rm_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
+int xs_rm_timeout(const char *path, uint32_t tx_id, xenlib_osal_timeout_t tout)
 {
 	char *local_path;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int ret;
 
 	if (!path) {
@@ -2238,7 +2241,7 @@ int xs_rm_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
 		return ret;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	ret = xss_do_rm_deadline(local_path, XENSTORE_LOCAL_DOMAIN_ID, deadline);
 	if (ret) {
@@ -2253,13 +2256,13 @@ int xs_rm_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
 }
 
 ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t tx_id,
-			     k_timeout_t tout)
+			     xenlib_osal_timeout_t tout)
 {
 	struct xs_entry *entry, *iter;
 	char *local_path;
 	size_t reply_sz = 0;
 	size_t used = 0;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int rc;
 
 	if (!path || (len > 0 && !buf)) {
@@ -2275,7 +2278,7 @@ ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t t
 		return rc;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
@@ -2315,14 +2318,14 @@ ssize_t xs_directory_timeout(const char *path, char *buf, size_t len, uint32_t t
 }
 
 ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms,
-				   size_t perms_num, uint32_t tx_id, k_timeout_t tout)
+				   size_t perms_num, uint32_t tx_id, xenlib_osal_timeout_t tout)
 {
 	struct xs_entry *entry;
 	struct xs_permissions *iter;
 	char *local_path;
 	size_t total = 0;
 	size_t used = 0;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int rc;
 
 	if (!path || (perms_num > 0 && !perms)) {
@@ -2338,7 +2341,7 @@ ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms
 		return rc;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
@@ -2368,11 +2371,11 @@ ssize_t xs_get_permissions_timeout(const char *path, struct xs_perm_entry *perms
 }
 
 int xs_set_permissions_timeout(const char *path, const struct xs_perm_entry *perms,
-			       size_t perms_num, uint32_t tx_id, k_timeout_t tout)
+			       size_t perms_num, uint32_t tx_id, xenlib_osal_timeout_t tout)
 {
 	struct xs_entry *entry;
 	char *local_path;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int rc;
 
 	if (!path || !perms || perms_num == 0) {
@@ -2388,7 +2391,7 @@ int xs_set_permissions_timeout(const char *path, const struct xs_perm_entry *per
 		return rc;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	rc = xss_mutex_lock_deadline(&xsel_mutex, deadline);
 	if (rc) {
@@ -2409,14 +2412,15 @@ int xs_set_permissions_timeout(const char *path, const struct xs_perm_entry *per
 	return rc;
 }
 
-int xs_mkdir_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
+int xs_mkdir_timeout(const char *path, uint32_t tx_id,
+			   xenlib_osal_timeout_t tout)
 {
 	struct xs_perm_entry perms = {
 		.domid = XENSTORE_LOCAL_DOMAIN_ID,
 		.perm = XS_PERM_NONE,
 	};
 	char *local_path;
-	k_timepoint_t deadline;
+	xenlib_osal_timepoint_t deadline;
 	int ret;
 
 	if (!path) {
@@ -2432,7 +2436,7 @@ int xs_mkdir_timeout(const char *path, uint32_t tx_id, k_timeout_t tout)
 		return ret;
 	}
 
-	deadline = sys_timepoint_calc(tout);
+	deadline = xenlib_osal_timepoint_calc(tout);
 
 	ret = xss_do_write_deadline(local_path, "", XENSTORE_LOCAL_DOMAIN_ID,
 				    &perms, 1, deadline);
