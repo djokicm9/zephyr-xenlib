@@ -42,10 +42,10 @@ LOG_MODULE_REGISTER(xen_domain_console);
 
 #define ESCAPE_CHARACTER		0x1d /* CTR+] */
 
-static K_THREAD_STACK_ARRAY_DEFINE(read_thrd_stack, CONFIG_DOMU_MAX,
+static XENLIB_OSAL_THREAD_STACK_ARRAY_DEFINE(read_thrd_stack, CONFIG_DOMU_MAX,
 				   XEN_CONSOLE_STACK_SIZE);
 #ifdef CONFIG_XEN_SHELL
-static K_THREAD_STACK_DEFINE(display_thrd_stack, XEN_CONSOLE_STACK_SIZE);
+static XENLIB_OSAL_THREAD_STACK_DEFINE(display_thrd_stack, XEN_CONSOLE_STACK_SIZE);
 #endif /* CONFIG_XEN_SHELL */
 
 static uint32_t used_threads;
@@ -316,7 +316,7 @@ int xen_start_domain_console(struct xen_domain *domain)
 	xenlib_osal_atomic_clear_bit(&console->stop_thrd, EXT_THREAD_STOP_BIT);
 
 	console->ext_tid =
-		k_thread_create(&console->ext_thrd,
+		xenlib_osal_thread_create(&console->ext_thrd,
 				read_thrd_stack[console->stack_idx],
 				XEN_CONSOLE_STACK_SIZE,
 				console_read_thrd, console,
@@ -326,7 +326,7 @@ int xen_start_domain_console(struct xen_domain *domain)
 		char name[CONFIG_THREAD_MAX_NAME_LEN];
 
 		snprintk(name, sizeof(name), "console_ext-d%u", domain->domid);
-		k_thread_name_set(&console->ext_thrd, name);
+		xenlib_osal_thread_name_set(&console->ext_thrd, name);
 	}
 
 	return 0;
@@ -359,7 +359,7 @@ int xen_stop_domain_console(struct xen_domain *domain)
 
 	/* Send event to end read cycle */
 	xenlib_osal_semaphore_signal(&console->ext_sem);
-	k_thread_join(&console->ext_thrd, XENLIB_OSAL_WAIT_FOREVER);
+	xenlib_osal_thread_join(&console->ext_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	console->ext_tid = NULL;
 	free_stack_idx(console->stack_idx);
 
@@ -368,7 +368,7 @@ int xen_stop_domain_console(struct xen_domain *domain)
 	if (current_console == console) {
 		xenlib_osal_semaphore_signal(&console->int_sem);
 		xenlib_osal_mutex_unlock(&global_console_lock);
-		k_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
+		xenlib_osal_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	} else {
 		xenlib_osal_mutex_unlock(&global_console_lock);
 	}
@@ -507,13 +507,13 @@ int xen_attach_domain_console(const xenlib_osal_shell_t *shell,
 	xenlib_osal_mutex_unlock(&global_console_lock);
 
 	if (!console->first_attach) {
-		k_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
+		xenlib_osal_thread_join(&console->int_thrd, XENLIB_OSAL_WAIT_FOREVER);
 	}
 
 	console->first_attach = false;
 	xenlib_osal_atomic_clear_bit(&console->stop_thrd, INT_THREAD_STOP_BIT);
 
-	k_thread_create(&console->int_thrd,
+	xenlib_osal_thread_create(&console->int_thrd,
 			display_thrd_stack,
 			XEN_CONSOLE_STACK_SIZE,
 			console_display_thrd, console,
@@ -523,7 +523,7 @@ int xen_attach_domain_console(const xenlib_osal_shell_t *shell,
 		char name[CONFIG_THREAD_MAX_NAME_LEN];
 
 		snprintk(name, sizeof(name), "console_disp-d%u", domain->domid);
-		k_thread_name_set(&console->int_thrd, name);
+		xenlib_osal_thread_name_set(&console->int_thrd, name);
 	}
 
 	xenlib_osal_shell_set_bypass(shell, console_shell_cb, NULL);

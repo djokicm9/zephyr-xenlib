@@ -80,7 +80,7 @@ struct pending_watch_event_entry {
 	xenlib_osal_dnode_t node;
 };
 
-static K_THREAD_STACK_ARRAY_DEFINE(xenstore_thrd_stack,
+static XENLIB_OSAL_THREAD_STACK_ARRAY_DEFINE(xenstore_thrd_stack,
 				   CONFIG_DOMU_MAX,
 				   XENSTORE_STACK_SIZE_PER_DOM);
 
@@ -1992,7 +1992,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 	}
 
 	xenstore->xs_stack_slot = get_stack_idx();
-	k_thread_create(&xenstore->thrd,
+	xenlib_osal_thread_create(&xenstore->thrd,
 			xenstore_thrd_stack[xenstore->xs_stack_slot],
 			XENSTORE_STACK_SIZE_PER_DOM,
 			xenstore_evt_thrd,
@@ -2002,7 +2002,7 @@ int start_domain_stored(struct xen_domain *domain, xen_pfn_t store_pfn)
 		char name[CONFIG_THREAD_MAX_NAME_LEN];
 
 		snprintf(name, sizeof(name), "xenstore-d%u", domain->domid);
-		k_thread_name_set(&xenstore->thrd, name);
+		xenlib_osal_thread_name_set(&xenstore->thrd, name);
 	}
 
 	return 0;
@@ -2090,7 +2090,7 @@ int stop_domain_stored(struct xen_domain *domain)
 	LOG_DBG("Destroy domain#%u", domain->domid);
 	xenlib_osal_atomic_set(&xenstore->thrd_stop, 1);
 	xenlib_osal_semaphore_signal(&xenstore->xb_sem);
-	k_thread_join(&xenstore->thrd, XENLIB_OSAL_WAIT_FOREVER);
+	xenlib_osal_thread_join(&xenstore->thrd, XENLIB_OSAL_WAIT_FOREVER);
 	free_stack_idx(xenstore->xs_stack_slot);
 	unbind_event_channel(xenstore->local_evtchn);
 

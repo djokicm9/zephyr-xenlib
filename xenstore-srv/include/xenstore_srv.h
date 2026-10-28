@@ -33,7 +33,7 @@ struct xenstore {
 	struct xenstore_domain_interface *domint;
 	struct xen_domain *domain;
 	xenlib_osal_semaphore_t xb_sem;
-	struct k_thread thrd;
+	xenlib_osal_thread_t thrd;
 	xenlib_osal_atomic_t thrd_stop;
 	evtchn_port_t remote_evtchn;
 	evtchn_port_t local_evtchn;
