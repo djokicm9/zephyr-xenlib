@@ -34,7 +34,6 @@
 #define _XEN_PUBLIC_IO_LIBXENVCHAN_H
 
 #include <stdint.h>
-#include <sys/types.h>
 
 struct ring_shared {
 	uint32_t cons, prod;

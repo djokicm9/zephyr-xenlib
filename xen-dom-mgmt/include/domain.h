@@ -7,7 +7,6 @@
 #ifndef XENLIB_XEN_DOMAIN_H
 #define XENLIB_XEN_DOMAIN_H
 
-#include <sys/types.h>
 #include <xen/events.h>
 #include <xen/generic.h>
 #include <xenstore_srv.h>

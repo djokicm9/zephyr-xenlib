@@ -31,7 +31,6 @@
  */
 
 #include <stdint.h>
-#include <sys/types.h>
 
 struct ring_shared {
 	uint32_t cons, prod;

@@ -13,7 +13,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/types.h>
 #include <xen/public/io/xs_wire.h>
 
 #include <xen/events.h>

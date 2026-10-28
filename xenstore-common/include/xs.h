@@ -9,7 +9,6 @@
 #define XENLIB_XS_H
 
 #include <stdint.h>
-#include <sys/types.h>
 
 #include <xenstore_common.h>
 #include <xenlib_osal.h>
