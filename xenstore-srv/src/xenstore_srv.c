@@ -14,12 +14,8 @@
 
 #include <xen/public/hvm/params.h>
 
-#include <zephyr/init.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/sys/barrier.h>
-#include <zephyr/sys/clock.h>
-#include <zephyr/xen/events.h>
-#include <zephyr/xen/hvm.h>
+#include <xen/events.h>
+#include <xen/hvm.h>
 
 #include <xenstore_common.h>
 #include <xs.h>

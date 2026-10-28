@@ -8,7 +8,7 @@
 #ifndef XENLIB_VCH_H
 #define XENLIB_VCH_H
 
-#include <zephyr/xen/generic.h>
+#include <xen/generic.h>
 #include <xen/public/event_channel.h>
 #include <xen/public/grant_table.h>
 #include <xen/public/xen.h>

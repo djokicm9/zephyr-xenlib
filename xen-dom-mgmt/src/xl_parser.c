@@ -12,8 +12,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include <zephyr/logging/log.h>
-
 #include <xl_parser.h>
 #include <xenlib_osal.h>
 

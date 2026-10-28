@@ -11,8 +11,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include <zephyr/kernel.h>
-
 #include <xenstore_common.h>
 #include <xenlib_osal.h>
 

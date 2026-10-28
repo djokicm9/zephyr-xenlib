@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <xstat.h>
-#include <zephyr/sys/util.h>
-#include <zephyr/shell/shell.h>
 #include <xenlib_osal.h>
 
 static int xstat_shell_vers(const xenlib_osal_shell_t *shell, size_t argc,

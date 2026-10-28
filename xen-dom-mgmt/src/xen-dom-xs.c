@@ -9,9 +9,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <zephyr/init.h>
-#include <zephyr/logging/log.h>
-
 #include <mem-mgmt.h>
 #include <domain.h>
 #include <xen/public/io/xs_wire.h>

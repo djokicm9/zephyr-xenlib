@@ -8,7 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr/logging/log.h>
 
 #include "domain.h"
 #include <xenlib_osal.h>
@@ -18,7 +17,7 @@ LOG_MODULE_DECLARE(xen_dom_mgmt);
 #if defined(CONFIG_XEN_LIBFDT)
 
 #include <xen/public/xen.h>
-#include <zephyr/xen/dom0/domctl.h>
+#include <xen/dom0/domctl.h>
 
 #include <libfdt.h>
 #include <xen-dom-fdt.h>

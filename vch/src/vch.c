@@ -9,11 +9,8 @@
 #include <string.h>
 #include <xss.h>
 
-#include <zephyr/sys/util.h>
-
-#include <zephyr/xen/events.h>
-#include <zephyr/xen/gnttab.h>
-#include <zephyr/sys/barrier.h>
+#include <xen/events.h>
+#include <xen/gnttab.h>
 
 #include "vch.h"
 #include <xenlib_osal.h>

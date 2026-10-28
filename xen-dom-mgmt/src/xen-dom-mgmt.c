@@ -7,14 +7,10 @@
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-#include <zephyr/arch/cache.h>
-#include <zephyr/cache.h>
-#include <zephyr/sys/byteorder.h>
-#include <zephyr/xen/dom0/domctl.h>
-#include <zephyr/xen/dom0/sysctl.h>
-#include <zephyr/xen/flask.h>
-#include <zephyr/xen/hvm.h>
-#include <zephyr/logging/log.h>
+#include <xen/dom0/domctl.h>
+#include <xen/dom0/sysctl.h>
+#include <xen/flask.h>
+#include <xen/hvm.h>
 
 #include <xen-dom-fdt.h>
 #include <xen-dom-xs.h>

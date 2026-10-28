@@ -6,7 +6,6 @@
 #ifndef XENLIB_XEN_CONSOLE_H
 #define XENLIB_XEN_CONSOLE_H
 
-#include <zephyr/shell/shell.h>
 #include <xenlib_osal.h>
 
 #ifdef __cplusplus

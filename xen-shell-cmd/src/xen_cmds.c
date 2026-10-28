@@ -4,9 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/shell/shell.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/xen/dom0/sysctl.h>
+#include <xen/dom0/sysctl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
